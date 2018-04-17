@@ -3,9 +3,12 @@ from whoosh.fields import *
 from traverse import access
 from codecs import open
 import config
-import sys
+import sys, time
 
-schema = Schema(title=TEXT(stored=True), id=ID(stored=True), content=TEXT, popularity=NUMERIC(stored=True))
+ERROR_LOG_FILENAME = 'errors-build-index_{}.log'.format(time.strftime('%m%d_%H%M'))
+
+schema = Schema(title=KEYWORD(stored=True), articleID=ID(stored=True),
+                body=TEXT(analyzer=analysis.StemmingAnalyzer()), count=NUMERIC(stored=True), xpath=STORED)
 
 
 def build_index_wiki13(dir_path: str, save_path: str):
@@ -19,13 +22,16 @@ def build_index_wiki13(dir_path: str, save_path: str):
         if fc%1000 == 0:
             print(fc, dpath)
         did = config.get_article_id_from_file_name(dname)
-        if did not in wiki13_title_count:
-            continue
-        with open(dpath, 'r', encoding='utf-8') as fo:
-            dcont = fo.read()
-        writer.add_document(title= wiki13_title_count[did]['title'], id=did, content=dcont, popularity=wiki13_title_count[did]['count'])
-        if fc > 200000:
-            break
+        try:
+            if did not in wiki13_title_count:
+                raise LookupError('Filename \'{}\' not in title-count list'.format(did))
+            with open(dpath, 'r', encoding='utf-8') as fo:
+                dcont = fo.read()
+            writer.add_document(title= wiki13_title_count[did]['title'], articleID=did,
+                                body=dcont, count=wiki13_title_count[did]['count'], xpath=dpath)
+        except Exception as e:
+            with open(ERROR_LOG_FILENAME, 'a') as fw:
+                fw.write(dpath + '  ' + str(e) + '\n')
     writer.commit()
     return
 

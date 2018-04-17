@@ -9,6 +9,7 @@ def get_article_id_from_file_name(filename):
         return -1
 
 
+# Returns file paths as a dictionary
 def get():
     configs = {}
     with open('configuration.csv', 'r') as fo:
