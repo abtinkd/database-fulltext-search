@@ -4,17 +4,17 @@ import re, codecs
 def get_article_id_from_file_name(filename):
     n = re.sub('[^0-9]', '', filename)
     if n != '' and n != None:
-        return int(n)
+        return str(n).encode('utf-8').decode('utf-8')
     else:
         return -1
 
 
 def get():
     configs = {}
-    with open('configuration.txt', 'r') as fo:
+    with open('configuration.csv', 'r') as fo:
         for line in fo:
             c,v = line.split(';', 1)
-            configs[c] = v
+            configs[c.strip()] = v.strip()
     return configs
 
 

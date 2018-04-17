@@ -1,3 +1,0 @@
-wiki13_count13; /data/wikipedia/wiki13_counts13_title.csv
-wiki13_dir; /data/wikipedia/wiki_13
-wiki13_index; /data/khodadaa/index_wiki13
