@@ -1,9 +1,9 @@
-from whoosh.index import create_in
+from whoosh.index import create_in, exists_in
 from whoosh.fields import *
 from traverse import access
 from codecs import open
 import config
-import sys, time
+import sys, time, os
 
 ERROR_LOG_FILENAME = 'errors-build-index_{}.log'.format(time.strftime('%m%d_%H%M'))
 
@@ -13,20 +13,29 @@ schema = Schema(title=KEYWORD(stored=True), articleID=ID(stored=True),
 
 def build_index_wiki13(dir_path: str, save_path: str):
     wiki13_title_count = config.init()
-    ix = create_in(save_path, schema)
-    writer = ix.writer()
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+    if not exists_in(save_path):
+        ix = create_in(save_path, schema)
+    else:
+        save_path = save_path + '_{}'.format(time.strftime('%m%d_%H%M'))
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+        ix = create_in(save_path, schema)
+    writer = ix.writer(limitmb=1024, procs=4, multisegment=True)  # Increase limitmb & multisegment=True in large batch indexing
     docs = access(dir_path)
     fc = 0
+    print('Building index in directory {}'.format(save_path))
     for dname, dpath in docs:
         fc +=1
         if fc%1000 == 0:
             print(fc, dpath)
         did = config.get_article_id_from_file_name(dname)
+        with open(dpath, 'r', encoding='utf-8') as fo:
+            dcont = fo.read()
         try:
             if did not in wiki13_title_count:
                 raise LookupError('Filename \'{}\' not in title-count list'.format(did))
-            with open(dpath, 'r', encoding='utf-8') as fo:
-                dcont = fo.read()
             writer.add_document(title= wiki13_title_count[did]['title'], articleID=did,
                                 body=dcont, count=wiki13_title_count[did]['count'], xpath=dpath)
         except Exception as e:

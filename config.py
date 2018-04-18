@@ -35,4 +35,4 @@ def init():
     configs = get()
     wiki13_title_count = build_wiki13_title_count(configs)
 
-    return  wiki13_title_count
+    return wiki13_title_count
