@@ -7,8 +7,11 @@ import sys, time, os
 
 ERROR_LOG_FILENAME = 'errors-build-index_{}.log'.format(time.strftime('%m%d_%H%M'))
 
-schema = Schema(title=KEYWORD(stored=True), articleID=ID(stored=True),
-                body=TEXT(analyzer=analysis.StemmingAnalyzer()), count=NUMERIC(stored=True), xpath=STORED)
+schema = Schema(title=TEXT(stored=True, vector=True, analyzer=analysis.StandardAnalyzer()),
+                articleID=ID(stored=True, unique=True),
+                body=TEXT(stored=False, vector=True, analyzer=analysis.StandardAnalyzer()),
+                count=NUMERIC(int, 32, stored=True, signed=False, sortable=True),
+                xpath=STORED)
 
 
 def build_index_wiki13(dir_path: str, save_path: str):
