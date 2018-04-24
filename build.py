@@ -52,6 +52,6 @@ if __name__ == '__main__':
     c = config.get()
 
     if len(sys.argv) > 3:
-        build_index_wiki13(sys.argv[1], sys.argv[2])
+        build_index_wiki13(c[sys.argv[1]], c[sys.argv[2]])
     else:
         build_index_wiki13(c['wiki13_dir'], c['wiki13_index'])
