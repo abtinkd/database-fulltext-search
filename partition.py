@@ -16,7 +16,6 @@ class IndexPartition(object):
         self.ix = file_index
         self.docnums = set(index_docnums)
         self._tfs = self._get_terms('body')
-        self.ix.reader()
 
     def doc_count(self):
         return len(self.docnums)
@@ -117,16 +116,25 @@ class IndexPartition(object):
                 pop_dist[dn] = ireader.stored_fields(dn)['count']
         return sorted(pop_dist.items(), key=operator.itemgetter(1), reverse=True)
 
-    def doc_kld(self, docnum, fieldname):
+    def doc_kld(self, docnum, fieldname='body'):
         with self.ix.reader() as ireader:
             if not ireader.has_vector(docnum, fieldname):
-                raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
+                raise NotImplementedError('Forward index (vector) is not available for doc {} field {}'
+                                          .format(docnum, fieldname))
 
-            tfs_list = ireader.vector_as('frequency', docnum, fieldname)
+            doc_tfs = ireader.vector_as('frequency', docnum, fieldname)
+        return distance(self.get_tfs(), doc_tfs, metrics.kl_divergence)
+
+    def doc_avg_kld(self, docnum, fieldname='body'):
+        with self.ix.reader() as ireader:
+            if not ireader.has_vector(docnum, fieldname):
+                raise NotImplementedError('Forward index (vector) is not available for doc {} field {}'
+                                          .format(docnum, fieldname))
+
+            doc_tfs = ireader.vector_as('frequency', docnum, fieldname)
             ireader.stored_fields()
+        raise NotImplementedError
 
-    def doc_avg_kld(self, docnum):
-        return 0.1
 
 
 def distance(part1: defaultdict, part2: defaultdict, metric: function) -> float:
@@ -147,12 +155,29 @@ def combine(part1: IndexPartition, part2: IndexPartition):
         com_part.add_doc(dn)
     return com_part
 
-def get_sorted_ids(index_reader):
-    count_id = []
-    for doc_ix in index_reader.iter_docs():
-        count_id += [(doc_ix[1]['count'], doc_ix[1]['articleID'], doc_ix[0])]
-    count_id = sorted(count_id, reverse=True)
-    return count_id
+def partition_popularity(index_path, threasholds=[0.9]):
+    threasholds = list(set(threasholds))
+    threasholds.sort(reverse=True)
+    ix = index.open_dir(index_path, readonly=True)
+    with ix.searcher() as isearcher:
+        isearcher.documents()
+
+class Partitioner(object):
+
+    def __init__(self, index_path: str):
+        self._ix = index.open_dir(index_path, readonly=True)
+        self._docnum_pop = self._docnum_pop()
+
+    def _docnum_pop(self):
+        ireader = self._ix.reader()
+        dn_pop = defaultdict(int)
+        for dx in ireader.iter_docs():
+            dn_pop[dx[0]] = int(dx[1]['count'])
+        return dn_pop
+
+    def get_sorted_ids(self):
+        return sorted(self._docnum_pop().items(), key=operator.itemgetter(1), reverse=True)
+
 
 
 # def partition_popularity_based(index_path, low_pop_ratio, high_pop_ratio=1.0):
