@@ -3,6 +3,9 @@ from whoosh import sorting
 from whoosh.qparser import QueryParser, MultifieldParser, GtLtPlugin
 from collections import defaultdict
 import config
+import metrics
+from math import log
+import operator
 
 
 # A filter over Index
@@ -47,8 +50,34 @@ class IndexPartition(object):
                 for tf in tfs_list:
                     self._tfs[tf[0]] += tf[1]
 
+    def search(self, text: str, sorted_by_count=False, fieldname='body'):
+        with self.ix.searcher() as isearcher:
+            skw = {'limited': None}
+            skw['q'] = QueryParser("body", self.ix.schema).parse(text)
+            if sorted_by_count:
+                skw['sortedby'] = sorting.FieldFacet('count', reverse=True)
+            results = isearcher.search(**skw)
+        return results.docs(), results.items()
+
     def get_tfs(self):
         return self._tfs.copy()
+
+    def get_dfs(self):
+        dfs = defaultdict(int)
+        for t in self._tfs.keys():
+            docnums, _ = self.search(t)
+            dfs[t] = len(docnums.intersection(self.docnums))
+        return dfs
+
+
+    def get_tfidfs(self, fieldname='body'):
+        tfidfs = defaultdict(float)
+        dfs = self.get_dfs()
+        with self.ix.reader() as ireader:
+            for t in ireader.field_terms(fieldname):
+                # divide by dfs[t] as of normalization
+                tfidfs[t] = (self._tfs[t]/dfs[t]) * log(ireader.doc_count() / ireader.doc_frequency(fieldname, t))
+        return tfidfs
 
     def get_docnums(self):
         return list(self.docnums)
@@ -81,18 +110,36 @@ class IndexPartition(object):
                 sf[dn] = ireader.stored_fields(dn)
         return sf
 
+    def get_popularity_distribution(self)-> list:
+        pop_dist = defaultdict(int)
+        with self.ix.reader() as ireader:
+            for dn in list(self.docnums):
+                pop_dist[dn] = ireader.stored_fields(dn)['count']
+        return sorted(pop_dist.items(), key=operator.itemgetter(1), reverse=True)
 
-import metrics
-def distance(part1: IndexPartition, part2: IndexPartition, metric: metrics.kl_divergence) -> float:
-    return metric(part1.get_tfs(), part2.get_tfs())
+    def doc_kld(self, docnum, fieldname):
+        with self.ix.reader() as ireader:
+            if not ireader.has_vector(docnum, fieldname):
+                raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
+
+            tfs_list = ireader.vector_as('frequency', docnum, fieldname)
+            ireader.stored_fields()
+
+    def doc_avg_kld(self, docnum):
+        return 0.1
+
+
+def distance(part1: defaultdict, part2: defaultdict, metric: function) -> float:
+    return metric(part1, part2)
 
 
 def kl_divergence(part1: IndexPartition, part2: IndexPartition):
-    return distance(part1, part2, metrics.kl_divergence)
+    return distance(part1.get_tfs(), part2.get_tfs(), metrics.kl_divergence)
 
 
 def avg_kl_divergence(part1: IndexPartition, part2: IndexPartition):
-    return distance(part1, part2, metrics.avg_kl_divergence)
+    return distance(part1.get_tfidfs(), part2.get_tfidfs(), metrics.avg_kl_divergence)
+
 
 def combine(part1: IndexPartition, part2: IndexPartition):
     com_part = IndexPartition(part1.ix, part1.get_docnums())
