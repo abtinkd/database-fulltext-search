@@ -3,10 +3,10 @@ from collections import defaultdict
 from math import log
 
 
-'''Xu, Jinxi, and W. Bruce Croft. "Cluster-based language models for distributed retrieval." 
-Proceedings of the 22nd annual international ACM SIGIR conference on Research and development in information retrieval. 
-ACM, 1999.'''
 def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict) -> float:
+    """Xu, Jinxi, and W. Bruce Croft. "Cluster-based language models for distributed retrieval."
+    Proceedings of the 22nd annual international ACM SIGIR conference on Research and development in
+    information retrieval. ACM, 1999."""
     kl = 0.0
     c1_terms_count = sum(corpus1_tfs.values())
     c2_terms_count = sum(corpus2_tfs.values())
@@ -19,10 +19,10 @@ def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict) -> float:
     return kl
 
 
-'''Huang, Anna. "Similarity measures for text document clustering." 
-Proceedings of the sixth new zealand computer science research student conference (NZCSRSC2008), 
-Christchurch, New Zealand. 2008.'''
 def avg_kl_divergence(corpus1_tfidf: defaultdict, corpus2_tfidf: defaultdict) -> float:
+    """ Huang, Anna. "Similarity measures for text document clustering."
+    Proceedings of the sixth new zealand computer science research student conference (NZCSRSC2008),
+    Christchurch, New Zealand. 2008. """
     vocab = set(corpus1_tfidf.keys())
     vocab.update(set(corpus2_tfidf.keys()))
     avg_kl = 0.0
