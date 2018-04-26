@@ -1,6 +1,7 @@
 import partition as pt
 from enhancer.describe import PartitionDescriptor
 
+
 def naive(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition):
     print(pt.kl_divergence(cache, disk))
     c = PartitionDescriptor(cache, disk)

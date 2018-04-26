@@ -5,6 +5,7 @@ from collections import defaultdict
 import metrics as mt
 from math import log
 from typing import Callable
+import logging
 
 
 # A filter over Index
@@ -40,9 +41,13 @@ class IndexVirtualPartition(object):
 
         tfs = defaultdict(int)
         for dn in list(self._docnums):
-            tfs_list = self._reader.vector_as('frequency', dn, fieldname)
-            for tf in tfs_list:
-                tfs[tf[0]] += tf[1]
+            if self._reader.has_vector(dn, fieldname):
+                tfs_list = self._reader.vector_as('frequency', dn, fieldname)
+                for tf in tfs_list:
+                    tfs[tf[0]] += tf[1]
+            else:
+                logging.warning('No forward index (vector) on {} for {}'
+                                .format(fieldname, self._reader.stored_fields(dn)))
         return tfs
 
     def all_terms_count(self):
@@ -55,12 +60,13 @@ class IndexVirtualPartition(object):
         if docnum not in self._docnums:
             self._docnums.add(docnum)
             ireader = self._reader
-            if not ireader.has_vector(docnum, fieldname):
-                raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
-
-            tfs_list = ireader.vector_as('frequency', docnum, fieldname)
-            for tf in tfs_list:
-                self._tfs[tf[0]] += tf[1]
+            if ireader.has_vector(docnum, fieldname):
+                tfs_list = ireader.vector_as('frequency', docnum, fieldname)
+                for tf in tfs_list:
+                    self._tfs[tf[0]] += tf[1]
+            else:
+                logging.warning('No forward index (vector) on {} for {}'
+                                .format(fieldname, self._reader.stored_fields(docnum)))
 
     def search(self, text: str, sorted_by_count=False, fieldname='body'):
         """returns (dset, item_gen)
@@ -102,17 +108,19 @@ class IndexVirtualPartition(object):
         if docnum in self._docnums:
             self._docnums.remove(docnum)
             ireader = self._reader
-            if not ireader.has_vector(docnum, fieldname):
-                raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
+            if ireader.has_vector(docnum, fieldname):
+                tfs_list = ireader.vector_as('frequency', docnum, fieldname)
+                for tf in tfs_list:
+                    self._tfs[tf[0]] -= tf[1]
+                    if self._tfs[tf[0]] <= 0:
+                        if self._tfs[tf[0]] == 0:
+                            self._tfs.pop(tf[0])
+                        else:
+                            raise ValueError('Negative value for tf in partition {}'.format(self.name))
+            else:
+                logging.warning('No forward index (vector) on {} for {}'
+                                .format(fieldname, self._reader.stored_fields(docnum)))
 
-            tfs_list = ireader.vector_as('frequency', docnum, fieldname)
-            for tf in tfs_list:
-                self._tfs[tf[0]] -= tf[1]
-                if self._tfs[tf[0]] <= 0:
-                    if self._tfs[tf[0]] == 0:
-                        self._tfs.pop(tf[0])
-                    else:
-                        raise ValueError('Negative value for tf in partition {}'.format(self.name))
 
     def all_stored_fields(self):
         """ A generator for stored fields
@@ -134,13 +142,14 @@ class IndexVirtualPartition(object):
         docnums = list(set(docnums))
         dn_kld_list = {}
         ireader = self._reader
-        if not ireader.has_vector(docnums[0], fieldname):
-            raise NotImplementedError('Forward index (vector) is not available for field {}'
-                                      .format(fieldname))
         for dn in docnums:
-            d_tfs = ireader.vector_as('frequency', dn, fieldname)
-            doc_tfs = defaultdict(int, {t: f for (t, f) in d_tfs})
-            dn_kld_list[dn] = distance(doc_tfs, self.get_tfs(), mt.kl_divergence)
+            if ireader.has_vector(dn, fieldname):
+                d_tfs = ireader.vector_as('frequency', dn, fieldname)
+                doc_tfs = defaultdict(int, {t: f for (t, f) in d_tfs})
+                dn_kld_list[dn] = distance(doc_tfs, self.get_tfs(), mt.kl_divergence)
+            else:
+                logging.warning('Manually assigned kld=0 for {}'.format(dn))
+                dn_kld_list[dn] = 0
         return dn_kld_list
 
     def doc_avg_kld(self, docnum, fieldname='body'):

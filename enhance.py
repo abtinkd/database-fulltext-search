@@ -1,11 +1,14 @@
 import config
 import partition as pt
 from enhancer.naive import naive
+import logging
 
 if __name__ == '__main__':
     configuration = config.get()
     pa = pt.Partitioner(configuration['wiki13_index'])
+    logging.info('Partitioner is initiated!')
     parts = pa.generate([0.9])
+    logging.info('Parts created!')
     parts = [p for p in parts]
     parts[0].name = 'cache'
     parts[1].name = 'disk'
