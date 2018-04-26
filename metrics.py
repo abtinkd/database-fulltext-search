@@ -7,14 +7,18 @@ def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict) -> float:
     """Xu, Jinxi, and W. Bruce Croft. "Cluster-based language models for distributed retrieval."
     Proceedings of the 22nd annual international ACM SIGIR conference on Research and development in
     information retrieval. ACM, 1999."""
+    vocab = set(corpus1_tfs.keys())
+    vocab.update(set(corpus2_tfs.keys()))
     kl = 0.0
     c1_terms_count = sum(corpus1_tfs.values())
     c2_terms_count = sum(corpus2_tfs.values())
+    if c1_terms_count <= 0 or c2_terms_count <= 0:
+        raise ValueError('Invalid length corpus')
     for t, f in corpus1_tfs.items():
-        if corpus2_tfs[t] <= 0 or corpus1_tfs[t] <= 0:
-            continue
+        if f < 0 or corpus2_tfs[t] < 0:
+            raise ValueError('Negative count for number of occurences of term {}'.format(t))
         p_t_c1 = f/c1_terms_count
-        p_t_c2 = corpus2_tfs[t]/c2_terms_count
+        p_t_c2 = (corpus2_tfs[t]+0.01)/(c2_terms_count+0.01*len(vocab))
         kl += p_t_c1 + log(p_t_c1/p_t_c2)
     return kl
 
