@@ -20,7 +20,7 @@ class IndexVirtualPartition(object):
             self._docnums = set(index_docnums)
         else:
             self._docnums = self._get_all_db_ids()
-        self._tfs = self._get_terms('body')
+        self._tfs, self._total_terms = self._get_terms('body')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._reader.close()
@@ -40,15 +40,17 @@ class IndexVirtualPartition(object):
             raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
 
         tfs = defaultdict(int)
+        total_terms = 0
         for dn in list(self._docnums):
             if self._reader.has_vector(dn, fieldname):
                 tfs_list = self._reader.vector_as('frequency', dn, fieldname)
                 for tf in tfs_list:
                     tfs[tf[0]] += tf[1]
+                    total_terms += tf[1]
             else:
                 logging.warning('No forward index (vector) on {} for {}'
                                 .format(fieldname, self._reader.stored_fields(dn)))
-        return tfs
+        return tfs, total_terms
 
     def all_terms_count(self):
         count = 0
@@ -82,7 +84,8 @@ class IndexVirtualPartition(object):
         return results.docs(), results.items()
 
     def get_tfs(self):
-        return self._tfs.copy()
+        # return self._tfs.copy()
+        return self._tfs
 
     def get_dfs(self):
         dfs = defaultdict(int)
@@ -91,6 +94,8 @@ class IndexVirtualPartition(object):
             dfs[t] = len(docnums.intersection(self._docnums))
         return dfs
 
+    def get_total_terms(self):
+        return self._total_terms
 
     def get_tfidfs(self, fieldname='body'):
         tfidfs = defaultdict(float)
@@ -145,8 +150,10 @@ class IndexVirtualPartition(object):
         for dn in docnums:
             if ireader.has_vector(dn, fieldname):
                 d_tfs = ireader.vector_as('frequency', dn, fieldname)
-                doc_tfs = defaultdict(int, {t: f for (t, f) in d_tfs})
-                dn_kld_list[dn] = distance(doc_tfs, self.get_tfs(), mt.kl_divergence)
+                doc_tfs = defaultdict(int, {t:f for (t,f) in d_tfs})
+                doc_tot_terms = sum(doc_tfs.values())
+                dn_kld_list[dn] = mt.kl_divergence(doc_tfs, self.get_tfs(), len(self._tfs), doc_tot_terms,
+                                                   self.get_total_terms())
             else:
                 logging.warning('Manually assigned kld=0 for {}'.format(dn))
                 dn_kld_list[dn] = 0
@@ -162,16 +169,21 @@ class IndexVirtualPartition(object):
         raise NotImplementedError
 
 
-def distance(part1: defaultdict, part2: defaultdict, metric: Callable) -> float:
-    return metric(part1, part2)
+def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition, vocab_size: int=None):
+    p1_tfs = part1.get_tfs()
+    p1_tts = part1.get_total_terms()
+    p2_tfs = part2.get_tfs()
+    p2_tts = part2.get_total_terms()
+    if vocab_size is None:
+        vocab_size = len(p1_tfs) if len(p1_tfs) >= len(p2_tfs) else len(p2_tfs)
+    return mt.kl_divergence(p1_tfs, p2_tfs, vocab_size, p1_tts, p2_tts)
 
 
-def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
-    return distance(part1.get_tfs(), part2.get_tfs(), mt.kl_divergence)
-
-
-def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
-    return distance(part1.get_tfidfs(), part2.get_tfidfs(), mt.avg_kl_divergence)
+def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition, vocabularies: set=None):
+    if vocabularies is None:
+        vocabularies = set(part1.get_tfs().keys())
+        vocabularies.update(part2.get_tfs().keys())
+    return mt.avg_kl_divergence(part1.get_tfidfs(), part2.get_tfidfs(), vocabularies)
 
 
 def combine(part1: IndexVirtualPartition, part2: IndexVirtualPartition):

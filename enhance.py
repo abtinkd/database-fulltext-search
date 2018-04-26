@@ -7,7 +7,7 @@ if __name__ == '__main__':
     configuration = config.get()
     pa = pt.Partitioner(configuration['wiki13_index'])
     logging.info('Partitioner is initiated!')
-    parts = pa.generate([0.9])
+    parts = pa.generate([0.98, 0.90, 0.7])
     logging.info('Parts created!')
     parts = [p for p in parts]
     parts[0].name = 'cache'
