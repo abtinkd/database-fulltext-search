@@ -6,6 +6,7 @@ import metrics as mt
 from math import log
 from typing import Callable
 import logging
+import time
 
 
 # A filter over Index
@@ -36,9 +37,6 @@ class IndexVirtualPartition(object):
         return len(self._docnums)
 
     def _get_terms(self, fieldname='body'):
-        if not self._reader.has_vector(list(self._docnums)[0], fieldname):
-            raise NotImplementedError('Forward index (vector) is not available for {}'.format(fieldname))
-
         tfs = defaultdict(int)
         total_terms = 0
         for dn in list(self._docnums):
@@ -144,9 +142,9 @@ class IndexVirtualPartition(object):
         return sf
 
     def docs_kld(self, docnums: list, fieldname: str='body'):
-        docnums = list(set(docnums))
         dn_kld_list = {}
         ireader = self._reader
+        st, i = time.time(), 0
         for dn in docnums:
             if ireader.has_vector(dn, fieldname):
                 d_tfs = ireader.vector_as('frequency', dn, fieldname)
@@ -154,9 +152,15 @@ class IndexVirtualPartition(object):
                 doc_tot_terms = sum(doc_tfs.values())
                 dn_kld_list[dn] = mt.kl_divergence(doc_tfs, self.get_tfs(), len(self._tfs), doc_tot_terms,
                                                    self.get_total_terms())
+                i += 1
             else:
                 logging.warning('Manually assigned kld=0 for {}'.format(dn))
                 dn_kld_list[dn] = 0
+
+            if i % 1000 == 0:
+                et = time.time()
+                print('{}. kld calculation rate: {:.4f}'.format(i, (et - st) / 1000))
+                st = et
         return dn_kld_list
 
     def doc_avg_kld(self, docnum, fieldname='body'):
@@ -204,18 +208,18 @@ class Partitioner(object):
         self._pop_dn.sort(reverse=True)
 
     def generate(self, threasholds=[0.9]):
-        threasholds += [0.0]
+        threasholds += [0.0, 1.0]
         threasholds = list(set(threasholds))
         threasholds.sort(reverse=True)
-        tot = len(self._pop_dn)
         c = 0
-        ti = 0
+        ti = 1
         docnums = []
         for pdn in self._pop_dn:
             c += 1
             docnums += [pdn[1]]
-            if c >= (1.0 - threasholds[ti]) * tot:
-                part = IndexVirtualPartition(self._ix, docnums, 'part' + str(ti))
+            if c >= (1.0 - threasholds[ti]) * len(self._pop_dn):
+                part = IndexVirtualPartition(self._ix, docnums,
+                                             '{}-{}partition'.format(threasholds[ti], threasholds[ti-1]))
                 docnums = []
                 ti += 1
                 yield part
