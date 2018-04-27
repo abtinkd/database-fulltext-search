@@ -1,8 +1,9 @@
 from __future__ import division
 from collections import defaultdict
 from math import log
-import logging
+import config
 
+LOGGER = config.setup_logger('root')
 
 def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict, vocab_size: int,
                   corpus1_total_terms: int=None, corpus2_total_terms: int=None) -> float:
@@ -14,7 +15,7 @@ def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict, vocab_size
     if corpus2_total_terms is None:
         corpus2_total_terms = sum(corpus2_tfs.values())
     if corpus1_total_terms == 0 or corpus2_total_terms == 0:
-        logging.warning('KLD 0.0000 for no-term corpus!')
+        LOGGER.warning('KLD 0.0000 for no-term corpus!')
         return 0.0
 
     kl = 0.0

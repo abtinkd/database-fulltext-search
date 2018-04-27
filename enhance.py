@@ -2,16 +2,19 @@ import config
 import partition as pt
 from enhancer.naive import naive
 from whoosh import index
-import logging
+import config
+
+LOGGER = config.setup_logger('root')
+LOGGER.disabled = True
 
 if __name__ == '__main__':
     configuration = config.get()
     ix = index.open_dir(configuration['wiki13_index'], readonly=True)
     with ix.reader() as ix_reader:
         pa = pt.Partitioner(ix, ix_reader)
-        logging.info('Partitioner is initiated!')
+        print('Partitioner is initiated!')
         parts = pa.generate([0.98, 0.90, 0.7])
-        logging.info('Parts created!')
+        print('Parts created!')
         parts = [p for p in parts]
         parts[0].name = 'cache'
         parts[1].name = 'disk'

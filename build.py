@@ -5,7 +5,7 @@ from codecs import open
 import config
 import sys, time, os
 
-ERROR_LOG_FILENAME = 'errors-build-index_{}.log'.format(time.strftime('%m%d_%H%M'))
+LOGGER = config.setup_logger('root')
 
 schema = Schema(title=TEXT(stored=True, vector=True, analyzer=analysis.StandardAnalyzer()),
                 articleID=ID(stored=True, unique=True),
@@ -25,7 +25,8 @@ def build_index_wiki13(dir_path: str, save_path: str):
         if not os.path.exists(save_path):
             os.mkdir(save_path)
         ix = create_in(save_path, schema)
-    writer = ix.writer(limitmb=1024, procs=4, multisegment=True)  # Increase limitmb & multisegment=True in large batch indexing
+    writer = ix.writer(limitmb=config.BUILD_limitmb, procs=config.BUILD_procs,
+                       multisegment=config.BUILD_multisegment)
     docs = access(dir_path)
     fc = 0
     print('Building index in directory {}'.format(save_path))
@@ -42,8 +43,8 @@ def build_index_wiki13(dir_path: str, save_path: str):
             writer.add_document(title= wiki13_title_count[did]['title'], articleID=did,
                                 body=dcont, count=wiki13_title_count[did]['count'], xpath=dpath)
         except Exception as e:
-            with open(ERROR_LOG_FILENAME, 'a') as fw:
-                fw.write(dpath + '  ' + str(e) + '\n')
+            LOGGER.error(dpath + '  ' + str(e) + '\n')
+
     writer.commit()
     return
 

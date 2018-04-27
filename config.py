@@ -1,4 +1,22 @@
-import re, codecs
+import re, os, codecs, time, logging
+
+# Increase limitmb & multisegment = True in large batch indexing
+BUILD_limitmb = 1024
+BUILD_procs = 4
+BUILD_multisegment = True
+
+
+def setup_logger(name):
+    if not os.path.exists('log'):
+        os.mkdir('log')
+    logger = logging.getLogger(name)
+    hdlr = logging.FileHandler('log/{}.log'.format(time.strftime('%m%d_%H%M')))
+    formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    return logger
 
 
 def get_article_id_from_file_name(filename):
@@ -31,7 +49,7 @@ def __build_wiki13_title_count():
             artic_count = int(lparts[1].strip())
             artic_title = lparts[2].strip()
             wiki13_title_count[artic_id] = {'title': artic_title, 'count': artic_count}
-    return  wiki13_title_count
+    return wiki13_title_count
 
 
 def init():

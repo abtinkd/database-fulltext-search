@@ -6,9 +6,10 @@ from whoosh.qparser import QueryParser
 from collections import defaultdict
 import metrics as mt
 from math import log
-import logging
+import config
 import time
 
+LOGGER = config.setup_logger('root')
 
 # A filter over Index
 class IndexVirtualPartition(object):
@@ -49,7 +50,7 @@ class IndexVirtualPartition(object):
                     tfs[tf[0]] += tf[1]
                     total_terms += tf[1]
             else:
-                logging.warning('No forward index (vector) on {} for {}'
+                LOGGER.warning('No forward index (vector) on {} for {}'
                                 .format(fieldname, self._reader.stored_fields(dn)))
         return tfs, total_terms
 
@@ -68,7 +69,7 @@ class IndexVirtualPartition(object):
                 for tf in tfs_list:
                     self._tfs[tf[0]] += tf[1]
             else:
-                logging.warning('No forward index (vector) on {} for {}'
+                LOGGER.warning('No forward index (vector) on {} for {}'
                                 .format(fieldname, self._reader.stored_fields(docnum)))
 
     def search(self, text: str, sorted_by_count=False, fieldname='body'):
@@ -124,7 +125,7 @@ class IndexVirtualPartition(object):
                         else:
                             raise ValueError('Negative value for tf in partition {}'.format(self.name))
             else:
-                logging.warning('No forward index (vector) on {} for {}'
+                LOGGER.warning('No forward index (vector) on {} for {}'
                                 .format(fieldname, self._reader.stored_fields(docnum)))
 
 
@@ -157,7 +158,7 @@ class IndexVirtualPartition(object):
                                                    self.get_total_terms())
                 i += 1
             else:
-                logging.warning('Manually assigned kld=0 for {}'.format(dn))
+                LOGGER.warning('Manually assigned kld=0 for {}'.format(dn))
                 dn_kld_list[dn] = 0
 
             if i % 1000 == 0:
