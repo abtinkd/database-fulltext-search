@@ -1,18 +1,21 @@
 import config
 import partition as pt
 from enhancer.naive import naive
+from whoosh import index
 import logging
 
 if __name__ == '__main__':
     configuration = config.get()
-    pa = pt.Partitioner(configuration['wiki13_index'])
-    logging.info('Partitioner is initiated!')
-    parts = pa.generate([0.98, 0.90, 0.7])
-    logging.info('Parts created!')
-    parts = [p for p in parts]
-    parts[0].name = 'cache'
-    parts[1].name = 'disk'
-    naive(parts[0], parts[1])
+    ix = index.open_dir(configuration['wiki13_index'], readonly=True)
+    with ix.reader() as ix_reader:
+        pa = pt.Partitioner(ix, ix_reader)
+        logging.info('Partitioner is initiated!')
+        parts = pa.generate([0.98, 0.90, 0.7])
+        logging.info('Parts created!')
+        parts = [p for p in parts]
+        parts[0].name = 'cache'
+        parts[1].name = 'disk'
+        naive(parts[0], parts[1])
     # partition_popularity_based(configuration['wiki13_index'])
     # ix = index.open_dir(configuration['wiki13_index'], readonly=True)
     # whole_db = IndexVirtualPartition(ix)

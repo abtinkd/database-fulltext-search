@@ -1,10 +1,11 @@
 import whoosh.index as index
+from whoosh.reading import IndexReader
+from whoosh.searching import Searcher
 from whoosh import sorting
 from whoosh.qparser import QueryParser
 from collections import defaultdict
 import metrics as mt
 from math import log
-from typing import Callable
 import logging
 import time
 
@@ -12,11 +13,13 @@ import time
 # A filter over Index
 class IndexVirtualPartition(object):
 
-    def __init__(self, file_index: index.FileIndex, index_docnums: list=None, name: str='DB'):
+    def __init__(self, file_index: index.FileIndex, index_docnums: list=None, name: str='DB',
+                 ix_reader: IndexReader=None):
         self.name = name
         self.ix = file_index
-        self._reader = file_index.reader()
-        self._searcher = file_index.searcher()
+        self._reader = ix_reader if ix_reader is not None else file_index.reader()
+        self._private_reader = False if ix_reader is not None else True
+        self._searcher = Searcher(self._reader)
         if index_docnums is not None:
             self._docnums = set(index_docnums)
         else:
@@ -24,8 +27,8 @@ class IndexVirtualPartition(object):
         self._tfs, self._total_terms = self._get_terms('body')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._reader.close()
-        self._searcher.close()
+        if self._private_reader:
+            self._reader.close()
 
     def _get_all_db_ids(self):
         all_ids = set()
@@ -199,16 +202,16 @@ def combine(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
 
 class Partitioner(object):
 
-    def __init__(self, index_path: str):
-        self._ix = index.open_dir(index_path, readonly=True)
+    def __init__(self, ix: index.FileIndex, ix_reader: IndexReader):
+        self._ix = ix
+        self._reader = ix_reader
         self._pop_dn = []
-        with self._ix.reader() as ireader:
-            for dx in ireader.iter_docs():
-                self._pop_dn += [(int(dx[1]['count']), dx[0])]
+        for dx in ix_reader.iter_docs():
+            self._pop_dn += [(int(dx[1]['count']), dx[0])]
         self._pop_dn.sort(reverse=True)
 
     def generate(self, threasholds=[0.9]):
-        threasholds += [0.0, 1.0]
+        threasholds += [1.0]
         threasholds = list(set(threasholds))
         threasholds.sort(reverse=True)
         c = 0
@@ -218,11 +221,13 @@ class Partitioner(object):
             c += 1
             docnums += [pdn[1]]
             if c >= (1.0 - threasholds[ti]) * len(self._pop_dn):
-                part = IndexVirtualPartition(self._ix, docnums,
-                                             '{}-{}partition'.format(threasholds[ti], threasholds[ti-1]))
+                yield IndexVirtualPartition(self._ix, docnums,
+                                            '{}-{}partition'.format(threasholds[ti], threasholds[ti-1]),
+                                            self._reader)
                 docnums = []
                 ti += 1
-                yield part
+                if ti == len(threasholds):
+                    break
 
 
 # def partition_popularity_based(index_path, low_pop_ratio, high_pop_ratio=1.0):
