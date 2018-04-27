@@ -1,9 +1,10 @@
 from __future__ import division
 from collections import defaultdict
 from math import log
-import config
+import logging
 
-LOGGER = config.setup_logger('root')
+LOGGER = logging.getLogger()
+
 
 def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict, vocab_size: int,
                   corpus1_total_terms: int=None, corpus2_total_terms: int=None) -> float:

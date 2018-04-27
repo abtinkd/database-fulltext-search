@@ -2,10 +2,10 @@ from whoosh.index import create_in, exists_in
 from whoosh.fields import *
 from traverse import access
 from codecs import open
-import config
+import logging, config
 import sys, time, os
 
-LOGGER = config.setup_logger('root')
+LOGGER = logging.getLogger()
 
 schema = Schema(title=TEXT(stored=True, vector=True, analyzer=analysis.StandardAnalyzer()),
                 articleID=ID(stored=True, unique=True),

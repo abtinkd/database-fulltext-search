@@ -6,10 +6,11 @@ from whoosh.qparser import QueryParser
 from collections import defaultdict
 import metrics as mt
 from math import log
-import config
+import logging
 import time
 
-LOGGER = config.setup_logger('root')
+LOGGER = logging.getLogger()
+
 
 # A filter over Index
 class IndexVirtualPartition(object):

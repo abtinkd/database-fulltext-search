@@ -6,10 +6,10 @@ BUILD_procs = 4
 BUILD_multisegment = True
 
 
-def setup_logger(name):
+def setup_logger():
     if not os.path.exists('log'):
         os.mkdir('log')
-    logger = logging.getLogger(name)
+    logger = logging.getLogger()
     hdlr = logging.FileHandler('log/{}.log'.format(time.strftime('%m%d_%H%M')))
     formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
     hdlr.setFormatter(formatter)
@@ -56,3 +56,6 @@ def init():
     id_title_count = __build_wiki13_title_count()
 
     return id_title_count
+
+
+setup_logger()

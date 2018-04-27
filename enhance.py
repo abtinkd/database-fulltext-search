@@ -4,8 +4,6 @@ from enhancer.naive import naive
 from whoosh import index
 import config
 
-LOGGER = config.setup_logger('root')
-LOGGER.disabled = True
 
 if __name__ == '__main__':
     configuration = config.get()
