@@ -23,7 +23,8 @@ def kl_divergence(corpus1_tfs: defaultdict, corpus2_tfs: defaultdict, vocab_size
     for t, f in corpus1_tfs.items():
         if f < 0 or corpus2_tfs[t] < 0:
             raise ValueError('Negative count for number of occurences of term {}'.format(t))
-        p_t_c1 = f/corpus1_total_terms
+        # added 0.01 to nominator and denominator of p_t_c1 to make kl divergence of two identical corpus 1.0
+        p_t_c1 = (f+0.01)/(corpus1_total_terms+0.01*vocab_size)
         p_t_c2 = (corpus2_tfs[t]+0.01)/(corpus2_total_terms+0.01*vocab_size)
         kl += p_t_c1 + log(p_t_c1/p_t_c2)
     return kl
