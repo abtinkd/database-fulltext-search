@@ -14,8 +14,8 @@ schema = Schema(title=TEXT(stored=True, vector=True, analyzer=analysis.StandardA
                 xpath=STORED)
 
 
-def build_index_wiki13(dir_path: str, save_path: str):
-    wiki13_title_count = config.init()
+def build_index_wiki13(dir_path: str, save_path: str, count_path: str):
+    wiki13_title_count = config.build_wiki13_title_count(count_path)
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     if not exists_in(save_path):
@@ -50,9 +50,10 @@ def build_index_wiki13(dir_path: str, save_path: str):
 
 
 if __name__ == '__main__':
-    c = config.get()
-
-    if len(sys.argv) > 3:
-        build_index_wiki13(c[sys.argv[1]], c[sys.argv[2]])
+    config.setup_logger()
+    c = config.get_paths()
+    if len(sys.argv) >= 4:
+        build_index_wiki13(c[sys.argv[1]], c[sys.argv[2]], c[sys.argv[3]])
     else:
-        build_index_wiki13(c['wiki13_dir'], c['wiki13_index'])
+        print('dir_alias, index_alias, count_alias is required!')
+

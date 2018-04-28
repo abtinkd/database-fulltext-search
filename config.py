@@ -6,16 +6,18 @@ BUILD_procs = 4
 BUILD_multisegment = True
 
 
-def setup_logger():
+def setup_logger(name=None):
     if not os.path.exists('log'):
         os.mkdir('log')
-    logger = logging.getLogger()
-    hdlr = logging.FileHandler('log/{}.log'.format(time.strftime('%m%d_%H%M')))
+    logger = logging.getLogger(name)
+    prefix = '' if name is None or name == 'root' else name+'_'
+    hdlr = logging.FileHandler('log/{}{}.log'.format(prefix, time.strftime('%m%d_%H%M')))
     formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
+    print('Logging set up.')
     return logger
 
 
@@ -28,7 +30,7 @@ def get_article_id_from_file_name(filename):
 
 
 # Returns file paths as a dictionary
-def get():
+def get_paths():
     configs = {}
     with open('configuration.csv', 'r') as fo:
         for line in fo:
@@ -39,10 +41,9 @@ def get():
     return configs
 
 
-def __build_wiki13_title_count():
+def build_wiki13_title_count(file_path):
     wiki13_title_count = {}
-    configs = get()
-    with codecs.open(configs['wiki13_count13'], 'r', encoding='utf-8') as fo:
+    with codecs.open(file_path, 'r', encoding='utf-8') as fo:
         for l in fo:
             lparts = l.split(',')
             artic_id = get_article_id_from_file_name(lparts[0].rsplit('/', 1)[1].strip())
@@ -52,10 +53,3 @@ def __build_wiki13_title_count():
     return wiki13_title_count
 
 
-def init():
-    id_title_count = __build_wiki13_title_count()
-
-    return id_title_count
-
-
-setup_logger()
