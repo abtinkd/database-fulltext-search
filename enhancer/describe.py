@@ -5,8 +5,7 @@ from time import time
 import logging
 import config
 
-config.setup_logger('Descriptor')
-LOGGER = logging.getLogger('Descriptor')
+LOGGER = logging.getLogger()
 
 
 class PartitionDescriptor(object):
@@ -59,13 +58,13 @@ class PartitionDescriptor(object):
 
     def save(self, file_path=None):
         if file_path is None:
-            file_path = 'log/{}.log'.format(self.name)
+            file_path = 'data/{}.dat'.format(self.name)
         pop_distrib = self.get_sorted('pop')
         with open(file_path, 'w') as w:
-            w.write(self.name+' :: docnum, popularity, kld, kld_cross, aritcleId, count, xpath\n')
+            w.write(self.name+' :: aritcleId, popularity, docnum, kld, kld_cross, count, xpath\n\n')
             for docnum, pop in pop_distrib:
                 sf = self._ixreader.stored_fields(docnum)
                 w.write('{},{},{},{},{},{},{}\n'
-                        .format(docnum, pop, self.kld_distrib[docnum],
-                                self.cross_kld_distrib[docnum], sf['articleID'], sf['count'], sf['xpath']))
+                        .format(sf['articleID'], pop, docnum, self.kld_distrib[docnum],
+                                self.cross_kld_distrib[docnum], sf['count'], sf['xpath']))
 

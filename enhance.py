@@ -8,19 +8,16 @@ import sys
 
 if __name__ == '__main__':
     index_name = sys.argv[1]
-    config.setup_logger()
+    config.setup_logger(index_name+'_enhance')
 
     configuration = config.get_paths()
     ix = index.open_dir(configuration[index_name], readonly=True)
     with ix.reader() as ix_reader:
         pa = pt.Partitioner(ix, ix_reader)
-        print('Partitioner is initiated!')
+        print('Partitioner initiated!')
         parts = pa.generate([0.98, 0.90, 0.7])
         print('Parts created!')
         parts = [p for p in parts]
-        parts[0].name = 'cache_fixed'
-        parts[1].name = 'cache_test'
-        parts[2].name = 'disk_test'
         naive(parts[1], parts[2])
     # partition_popularity_based(configuration['wiki13_index'])
     # ix = index.open_dir(configuration['wiki13_index'], readonly=True)

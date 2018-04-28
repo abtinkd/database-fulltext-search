@@ -50,9 +50,9 @@ def build_index_wiki13(dir_path: str, save_path: str, count_path: str):
 
 
 if __name__ == '__main__':
-    config.setup_logger()
     c = config.get_paths()
     if len(sys.argv) >= 4:
+        config.setup_logger('{}-{}-{}_build'.format(sys.argv[1], sys.argv[2], sys.argv[3]))
         build_index_wiki13(c[sys.argv[1]], c[sys.argv[2]], c[sys.argv[3]])
     else:
         print('dir_alias, index_alias, count_alias is required!')

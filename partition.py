@@ -164,7 +164,7 @@ class IndexVirtualPartition(object):
 
             if i % 1000 == 0:
                 et = time.time()
-                print('{}. kld calculation rate: {:.4f}'.format(i, (et - st) / 1000))
+                LOGGER.info('{}. kld calculation rate: {:.4f}'.format(i, (et - st) / 1000))
                 st = et
         return dn_kld_list
 
@@ -224,7 +224,7 @@ class Partitioner(object):
             docnums += [pdn[1]]
             if c >= (1.0 - threasholds[ti]) * len(self._pop_dn):
                 yield IndexVirtualPartition(self._ix, docnums,
-                                            '{}-{}partition'.format(threasholds[ti], threasholds[ti-1]),
+                                            '{}-{}_part'.format(threasholds[ti], threasholds[ti-1]),
                                             self._reader)
                 docnums = []
                 ti += 1

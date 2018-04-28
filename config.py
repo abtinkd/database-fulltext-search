@@ -6,12 +6,12 @@ BUILD_procs = 4
 BUILD_multisegment = True
 
 
-def setup_logger(name=None):
+def setup_logger(file_name=None):
     if not os.path.exists('log'):
         os.mkdir('log')
-    logger = logging.getLogger(name)
-    prefix = '' if name is None or name == 'root' else name+'_'
-    hdlr = logging.FileHandler('log/{}{}.log'.format(prefix, time.strftime('%m%d_%H%M')))
+    logger = logging.getLogger()
+    postfix = '' if file_name is None or file_name == 'root' else '_'+file_name
+    hdlr = logging.FileHandler('log/{}{}.log'.format(time.strftime('%m%d_%H%M'), postfix))
     formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
