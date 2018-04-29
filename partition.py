@@ -27,9 +27,8 @@ class IndexVirtualPartition(object):
         else:
             self._docnums = self._get_all_db_ids()
         self._dfs, self._tfs, self._total_terms = self._build(content_field)
-        self._tfidfs = defaultdict(int)
+        self._tfidfs = defaultdict(float)
         self.update_tfidfs()
-        self._vocabulary = set(self._tfs.keys())
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._private_reader:
@@ -60,10 +59,7 @@ class IndexVirtualPartition(object):
         return dfs, tfs, total_terms
 
     def all_terms_count(self):
-        count = 0
-        for t, f in self._tfs:
-            count += f
-        return count
+        return self._total_terms
 
     def add_doc(self, docnum, fieldname='body'):
         if docnum not in self._docnums:
@@ -93,7 +89,6 @@ class IndexVirtualPartition(object):
                         if self._tfs[tf[0]] == 0:
                             self._tfs.pop(tf[0])
                             self._dfs.pop(tf[0])
-                            self._vocabulary.remove(tf[0])
                         else:
                             raise ValueError('Negative value for tf in partition {}'.format(self.name))
             else:
@@ -128,11 +123,11 @@ class IndexVirtualPartition(object):
         return self._total_terms
 
     def update_tfidfs(self, fieldname='body'):
-        ireader = self._reader
+        effective_doc_count = 1 + self._reader.doc_count() - self.doc_count()
         for t in self._tfs:
-            # divide by dfs[t] as of normalization
-            self._tfidfs[t] = (self._tfs[t]/self._dfs[t]) * \
-                        log(ireader.doc_count() / ireader.doc_frequency(fieldname, t))
+            effective_df = 1 + self._reader.doc_frequency(fieldname, t) - self._dfs[t]
+            self._tfidfs[t] = (self._tfs[t] / self._total_terms) * \
+                        log(effective_doc_count / effective_df)
 
     def get_docnums(self):
         return list(self._docnums)
@@ -176,18 +171,11 @@ class IndexVirtualPartition(object):
 
     def doc_avg_kld(self, docnums: list, fieldname='body'):
         dn_avg_kld_list = {}
-        ireader = self._reader
-        tot_docs = ireader.doc_count()
         st, i = time.time(), 0
         for dn in docnums:
-            if ireader.has_vector(dn, fieldname):
-                d_tfs = ireader.vector_as('frequency', dn, fieldname)
-                doc_tfidfs = defaultdict(int)
-                doc_vocabs = []
-                for t, f in d_tfs:
-                    doc_tfidfs[t] = f * log(tot_docs/ireader.doc_frequency(fieldname, t))
-                    doc_vocabs += [t]
-                dn_avg_kld_list[dn] = mt.avg_kl_divergence(doc_tfidfs, self.get_tfidfs(), doc_vocabs)
+            doc_tfidfs = get_doc_tfidf(self._reader, dn, fieldname)
+            if doc_tfidfs != -1:
+                dn_avg_kld_list[dn] = mt.avg_kl_divergence(doc_tfidfs, self.get_tfidfs())
                 i += 1
             else:
                 LOGGER.warning('Manually assigned avg-kld=0 for {}'.format(dn))
@@ -200,6 +188,21 @@ class IndexVirtualPartition(object):
         return dn_avg_kld_list
 
 
+def get_doc_tfidf(ireader, dn, fieldname):
+    if ireader.has_vector(dn, fieldname):
+        doc_tfidfs = defaultdict(int)
+        tot_docs = ireader.doc_count()
+        d_tfs = ireader.vector_as('frequency', dn, fieldname)
+        doc_tot_terms = 0
+        for _, f in d_tfs:
+            doc_tot_terms += f
+        for t, f in d_tfs:
+            doc_tfidfs[t] = (f / doc_tot_terms) * log(tot_docs / ireader.doc_frequency(fieldname, t))
+        return doc_tfidfs
+    else:
+        return -1
+
+
 def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
     p1_tfs = part1.get_tfs()
     p1_tts = part1.get_total_terms()
@@ -208,11 +211,8 @@ def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
     return mt.kl_divergence(p1_tfs, p2_tfs, p1_tts, p2_tts)
 
 
-def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition, vocabularies: set=None):
-    if vocabularies is None:
-        vocabularies = set(part1.get_tfs().keys())
-        vocabularies.update(part2.get_tfs().keys())
-    return mt.avg_kl_divergence(part1.get_tfidfs(), part2.get_tfidfs(), vocabularies)
+def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
+    return mt.avg_kl_divergence(part1.get_tfidfs(), part2.get_tfidfs())
 
 
 def combine(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
