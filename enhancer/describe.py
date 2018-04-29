@@ -1,7 +1,7 @@
 from partition import IndexVirtualPartition
 from collections import defaultdict
 import operator
-from time import time
+from time import time, strftime
 import logging
 import config
 
@@ -15,7 +15,7 @@ class PartitionDescriptor(object):
         self._cross_partition = cross_partition
         self._ixreader = this_partition._reader
         self._ixsearcher = this_partition._searcher
-        self.name = this_partition.name + '_descriptor'
+        self.name = this_partition.name + '_vs_' + cross_partition.name
         self.pop_distrib = None
         self.kld_distrib = None
         self.cross_kld_distrib = None
@@ -50,21 +50,28 @@ class PartitionDescriptor(object):
     def _update_kld_distribution(self, cross=False):
         st = time()
         if not cross:
-            self.kld_distrib = self._partition.docs_kld(self._partition.get_docnums(), 'body')
+            self.kld_distrib = self._partition.doc_avg_kld(self._partition.get_docnums(), 'body')
         else:
-            self.cross_kld_distrib = self._cross_partition.docs_kld(self._partition.get_docnums(), 'body')
+            self.cross_kld_distrib = self._cross_partition.doc_avg_kld(self._partition.get_docnums(), 'body')
 
         LOGGER.debug('{} kld distribution is updated. [{:.4f}s]'.format(self.name, time()-st))
 
     def save(self, file_path=None):
         if file_path is None:
-            file_path = 'data/{}.dat'.format(self.name)
+            file_path = 'data/{}_{}.csv'.format(strftime('%m%d_%H%M'), self.name)
         pop_distrib = self.get_sorted('pop')
         with open(file_path, 'w') as w:
-            w.write(self.name+' :: aritcleId, popularity, docnum, kld, kld_cross, count, xpath\n\n')
+            w.write(self.name +
+                    ' :: aritcleId, popularity, kld_cross-kld, kld, kld_cross, docnum, count, xpath\n')
             for docnum, pop in pop_distrib:
                 sf = self._ixreader.stored_fields(docnum)
-                w.write('{},{},{},{},{},{},{}\n'
-                        .format(sf['articleID'], pop, docnum, self.kld_distrib[docnum],
-                                self.cross_kld_distrib[docnum], sf['count'], sf['xpath']))
+                w.write('{},{},{},{},{},{},{},{}\n'
+                        .format(sf['articleID'],
+                                pop,
+                                self.cross_kld_distrib[docnum]-self.kld_distrib[docnum],
+                                self.kld_distrib[docnum],
+                                self.cross_kld_distrib[docnum],
+                                docnum,
+                                sf['count'],
+                                sf['xpath']))
 

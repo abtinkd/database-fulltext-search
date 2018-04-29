@@ -30,18 +30,18 @@ def kl_divergence(corpus1_tfs: dict, corpus2_tfs: dict,
     return kl
 
 
-def avg_kl_divergence(corpus1_tfidf: dict, corpus2_tfidf: dict, vocabularies: set) -> float:
+def avg_kl_divergence(corpus1_tfidf: dict, corpus2_tfidf: dict, vocabularies: list) -> float:
     """ Huang, Anna. "Similarity measures for text document clustering."
     Proceedings of the sixth new zealand computer science research student conference (NZCSRSC2008),
     Christchurch, New Zealand. 2008. """
     avg_kl = 0.0
-    for t in list(vocabularies):
+    for t in vocabularies:
         sm_w_t_1 = corpus1_tfidf.get(t, 0.0) + 0.01
         sm_w_t_2 = corpus2_tfidf.get(t, 0.0) + 0.01
-        pi1 = sm_w_t_1[t] / (sm_w_t_1[t] + sm_w_t_2[t])
-        pi2 = sm_w_t_2[t] / (sm_w_t_1[t] + sm_w_t_2[t])
-        M = pi1 * sm_w_t_1[t] + pi2 * sm_w_t_2[t]
-        D1 = sm_w_t_1[t] * log(sm_w_t_1[t] / M)
-        D2 = sm_w_t_2[t] * log(sm_w_t_2[t] / M)
+        pi1 = sm_w_t_1 / (sm_w_t_1 + sm_w_t_2)
+        pi2 = sm_w_t_2 / (sm_w_t_1 + sm_w_t_2)
+        M = pi1 * sm_w_t_1 + pi2 * sm_w_t_2
+        D1 = sm_w_t_1 * log(sm_w_t_1 / M)
+        D2 = sm_w_t_2 * log(sm_w_t_2 / M)
         avg_kl += pi1 * D1 + pi2 * D2
     return avg_kl
