@@ -69,6 +69,25 @@ class IndexVirtualPartition(object):
                 tfs_list = ireader.vector_as('frequency', docnum, fieldname)
                 for tf in tfs_list:
                     self._tfs[tf[0]] += tf[1]
+                    self._total_terms += tf[1]
+            else:
+                LOGGER.warning('No forward index (vector) on {} for {}'
+                                .format(fieldname, self._reader.stored_fields(docnum)))
+
+    def remove_doc(self, docnum, fieldname='body'):
+        if docnum in self._docnums:
+            self._docnums.remove(docnum)
+            ireader = self._reader
+            if ireader.has_vector(docnum, fieldname):
+                tfs_list = ireader.vector_as('frequency', docnum, fieldname)
+                for tf in tfs_list:
+                    self._tfs[tf[0]] -= tf[1]
+                    self._total_terms -= tf[1]
+                    if self._tfs[tf[0]] <= 0:
+                        if self._tfs[tf[0]] == 0:
+                            self._tfs.pop(tf[0])
+                        else:
+                            raise ValueError('Negative value for tf in partition {}'.format(self.name))
             else:
                 LOGGER.warning('No forward index (vector) on {} for {}'
                                 .format(fieldname, self._reader.stored_fields(docnum)))
@@ -112,24 +131,6 @@ class IndexVirtualPartition(object):
     def get_docnums(self):
         return list(self._docnums)
 
-    def remove_doc(self, docnum, fieldname='body'):
-        if docnum in self._docnums:
-            self._docnums.remove(docnum)
-            ireader = self._reader
-            if ireader.has_vector(docnum, fieldname):
-                tfs_list = ireader.vector_as('frequency', docnum, fieldname)
-                for tf in tfs_list:
-                    self._tfs[tf[0]] -= tf[1]
-                    if self._tfs[tf[0]] <= 0:
-                        if self._tfs[tf[0]] == 0:
-                            self._tfs.pop(tf[0])
-                        else:
-                            raise ValueError('Negative value for tf in partition {}'.format(self.name))
-            else:
-                LOGGER.warning('No forward index (vector) on {} for {}'
-                                .format(fieldname, self._reader.stored_fields(docnum)))
-
-
     def all_stored_fields(self):
         """ A generator for stored fields
         :return:
@@ -155,8 +156,7 @@ class IndexVirtualPartition(object):
                 d_tfs = ireader.vector_as('frequency', dn, fieldname)
                 doc_tfs = defaultdict(int, {t:f for (t,f) in d_tfs})
                 doc_tot_terms = sum(doc_tfs.values())
-                dn_kld_list[dn] = mt.kl_divergence(doc_tfs, self.get_tfs(), len(self._tfs), doc_tot_terms,
-                                                   self.get_total_terms())
+                dn_kld_list[dn] = mt.kl_divergence(doc_tfs, self.get_tfs(), doc_tot_terms, self.get_total_terms())
                 i += 1
             else:
                 LOGGER.warning('Manually assigned kld=0 for {}'.format(dn))
@@ -178,14 +178,12 @@ class IndexVirtualPartition(object):
         raise NotImplementedError
 
 
-def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition, vocab_size: int=None):
+def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
     p1_tfs = part1.get_tfs()
     p1_tts = part1.get_total_terms()
     p2_tfs = part2.get_tfs()
     p2_tts = part2.get_total_terms()
-    if vocab_size is None:
-        vocab_size = len(p1_tfs) if len(p1_tfs) >= len(p2_tfs) else len(p2_tfs)
-    return mt.kl_divergence(p1_tfs, p2_tfs, vocab_size, p1_tts, p2_tts)
+    return mt.kl_divergence(p1_tfs, p2_tfs, p1_tts, p2_tts)
 
 
 def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition, vocabularies: set=None):
