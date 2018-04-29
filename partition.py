@@ -28,7 +28,6 @@ class IndexVirtualPartition(object):
             self._docnums = self._get_all_db_ids()
         self._dfs, self._tfs, self._total_terms = self._build(content_field)
         self._tfidfs = defaultdict(float)
-        self.update_tfidfs()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._private_reader:
@@ -117,6 +116,8 @@ class IndexVirtualPartition(object):
         return self._dfs
 
     def get_tfidfs(self):
+        if len(self._tfidfs) == 0:
+            raise ValueError('Empty tfidf. It must be updated before use.')
         return self._tfidfs
 
     def get_total_terms(self):
@@ -126,8 +127,7 @@ class IndexVirtualPartition(object):
         effective_doc_count = 1 + self._reader.doc_count() - self.doc_count()
         for t in self._tfs:
             effective_df = 1 + self._reader.doc_frequency(fieldname, t) - self._dfs[t]
-            self._tfidfs[t] = (self._tfs[t] / self._total_terms) * \
-                        log(effective_doc_count / effective_df)
+            self._tfidfs[t] = self._tfs[t] * log(effective_doc_count / effective_df)
 
     def get_docnums(self):
         return list(self._docnums)
@@ -148,71 +148,79 @@ class IndexVirtualPartition(object):
             sf[dn] = ireader.stored_fields(dn)
         return sf
 
-    def docs_kld(self, docnums: list, fieldname: str='body'):
-        dn_kld_list = {}
-        ireader = self._reader
-        st, i = time.time(), 0
+    def docs_divergence(self, docnums: list,
+                        similarity_measure_type: str='avg-kld',
+                        score_type: str='tf',
+                        fieldname: str='body'):
+        div = {}
+        st = time.time()
+        LOGGER.info('Calculating {} of {} documents from {} based on {}'.format(similarity_measure_type,
+                                                                                len(docnums),
+                                                                                self.name,
+                                                                                score_type))
+        term_scoring, doc_tot_terms = None, 0
         for dn in docnums:
-            if ireader.has_vector(dn, fieldname):
-                d_tfs = ireader.vector_as('frequency', dn, fieldname)
-                doc_tfs = defaultdict(int, {t:f for (t,f) in d_tfs})
-                doc_tot_terms = sum(doc_tfs.values())
-                dn_kld_list[dn] = mt.kl_divergence(doc_tfs, self.get_tfs(), doc_tot_terms, self.get_total_terms())
-                i += 1
+            if score_type == 'tf':
+                term_scoring, doc_tot_terms = get_doc_tf(self._reader, dn, fieldname)
+            elif score_type == 'tfidf':
+                term_scoring, doc_tot_terms = get_doc_tfidf(self._reader, dn, fieldname)
+            if term_scoring is not None:
+                if similarity_measure_type == 'avg-kld':
+                    div[dn] = mt.avg_kl_divergence(term_scoring, self.get_tfs(), doc_tot_terms, self.get_total_terms())
+                elif similarity_measure_type == 'kld':
+                    div[dn] = mt.kl_divergence(term_scoring, self.get_tfs(), doc_tot_terms, self.get_total_terms())
             else:
-                LOGGER.warning('Manually assigned kld=0 for {}'.format(dn))
-                dn_kld_list[dn] = 0
+                LOGGER.warning('Manually assigned {}=0.0 for {}'.format(similarity_measure_type, dn))
+                div[dn] = 0
+        LOGGER.info('{} {} calculation rate: {} d/s'.format(score_type, similarity_measure_type,
+                                                              len(docnums)/(time.time()-st)))
+        return div
 
-            if i % 1000 == 0:
-                et = time.time()
-                LOGGER.info('{}. kld calculation rate: {:.4f}'.format(i, (et - st) / 1000))
-                st = et
-        return dn_kld_list
 
-    def doc_avg_kld(self, docnums: list, fieldname='body'):
-        dn_avg_kld_list = {}
-        st, i = time.time(), 0
-        for dn in docnums:
-            doc_tfidfs = get_doc_tfidf(self._reader, dn, fieldname)
-            if doc_tfidfs != -1:
-                dn_avg_kld_list[dn] = mt.avg_kl_divergence(doc_tfidfs, self.get_tfidfs())
-                i += 1
-            else:
-                LOGGER.warning('Manually assigned avg-kld=0 for {}'.format(dn))
-                dn_avg_kld_list[dn] = 0
-
-            if i % 1000 == 0:
-                et = time.time()
-                LOGGER.info('{}. avg-kld calculation rate: {:.4f}'.format(i, (et - st) / 1000))
-                st = et
-        return dn_avg_kld_list
+def get_doc_tf(ireader, dn, fieldname):
+    if ireader.has_vector(dn, fieldname):
+        doc_tfs = defaultdict(int)
+        doc_tot_terms = 0
+        for t, f in ireader.vector_as('frequency', dn, fieldname):
+            doc_tfs[t] = f
+            doc_tot_terms += f
+        return doc_tfs, doc_tot_terms
+    else:
+        return None, 0
 
 
 def get_doc_tfidf(ireader, dn, fieldname):
     if ireader.has_vector(dn, fieldname):
         doc_tfidfs = defaultdict(int)
         tot_docs = ireader.doc_count()
-        d_tfs = ireader.vector_as('frequency', dn, fieldname)
         doc_tot_terms = 0
-        for _, f in d_tfs:
+        for t, f in ireader.vector_as('frequency', dn, fieldname):
+            doc_tfidfs[t] = f * log(tot_docs / ireader.doc_frequency(fieldname, t))
             doc_tot_terms += f
-        for t, f in d_tfs:
-            doc_tfidfs[t] = (f / doc_tot_terms) * log(tot_docs / ireader.doc_frequency(fieldname, t))
-        return doc_tfidfs
+        return doc_tfidfs, doc_tot_terms
     else:
-        return -1
+        return None, 0
 
 
-def kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
-    p1_tfs = part1.get_tfs()
-    p1_tts = part1.get_total_terms()
-    p2_tfs = part2.get_tfs()
-    p2_tts = part2.get_total_terms()
-    return mt.kl_divergence(p1_tfs, p2_tfs, p1_tts, p2_tts)
-
-
-def avg_kl_divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
-    return mt.avg_kl_divergence(part1.get_tfidfs(), part2.get_tfidfs())
+def divergence(part1: IndexVirtualPartition, part2: IndexVirtualPartition,
+               similarity_measure_type: str='avg-kld', score_type: str='tf', fieldname: str='body'):
+    st = time.time()
+    LOGGER.info('Calculating {} of {} from {} based on {}'
+                .format(similarity_measure_type, part1.name, part2.name, score_type))
+    div, measure1, measure2 = None, None, None
+    if score_type == 'tf':
+        measure1 = part1.get_tfs()
+        measure2 = part2.get_tfs()
+    elif score_type == 'tfidf':
+        measure1 = part1.get_tfidfs()
+        measure2 = part2.get_tfidfs()
+    if similarity_measure_type == 'avg-kld':
+        div = mt.avg_kl_divergence(measure1, measure2, part1.get_total_terms(), part2.get_total_terms())
+    elif similarity_measure_type == 'kld':
+        div = mt.kl_divergence(measure1, measure2, part1.get_total_terms(), part2.get_total_terms())
+    LOGGER.info('{} {} Calculation time: {} min'.format(score_type, similarity_measure_type,
+                                                                    (time.time() - st)/60))
+    return div
 
 
 def combine(part1: IndexVirtualPartition, part2: IndexVirtualPartition):
