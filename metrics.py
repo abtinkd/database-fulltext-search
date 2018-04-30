@@ -17,8 +17,9 @@ def kl_divergence(corpus1_measure: dict, corpus2_measure: dict,
         return 0.0
 
     kl = 0.0
-    for t, sm_w_t_1 in corpus1_measure.items():
-        sm_w_t_2 = corpus2_measure.get(t, 0.0)
+    for t in corpus1_measure:
+        sm_w_t_1 = corpus1_measure.get(t, 0.0) + 0.01
+        sm_w_t_2 = corpus2_measure.get(t, 0.0) + 0.01
         if sm_w_t_1 < 0 or sm_w_t_2 < 0:
             raise ValueError('Negative count for number of occurences of term {}'.format(t))
         p_t_c1 = sm_w_t_1 / corpus1_normalization_factor
@@ -32,7 +33,7 @@ def avg_kl_divergence(corpus1_measure: dict, corpus2_measure: dict,
     """ Huang, Anna. "Similarity measures for text document clustering."
     Proceedings of the sixth new zealand computer science research student conference (NZCSRSC2008),
     Christchurch, New Zealand. 2008. """
-    # vocabularies = list(set(corpus1_tfidf.keys()).union(set(corpus2_tfidf.keys())))
+    # vocabularies = list(set(corpus1_measure.keys()).union(set(corpus2_measure.keys())))
     # one way comparison for simplicity
     vocabularies = corpus1_measure if len(corpus1_measure) <= len(corpus2_measure) else corpus2_measure
     avg_kl = 0.0
