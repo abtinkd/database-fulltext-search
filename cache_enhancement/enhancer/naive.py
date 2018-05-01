@@ -3,9 +3,12 @@ from enhancer.describe import PartitionDescriptor
 
 
 def naive(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition):
-    inter_part_kl = pt.divergence(cache, disk)
-    print(inter_part_kl)
-    c = PartitionDescriptor(cache, disk)
-    d = PartitionDescriptor(disk, cache)
-    c.save()
-    d.save()
+    print('kld divergence({}, {}) = {}'.format(cache.name, disk.name, pt.divergence(cache, disk)))
+    des = PartitionDescriptor(cache, disk, similarity_measure_type='kld', update_modes=['pop', 'cross-div'])
+    print('saving ...')
+    des.save()
+    print('avg-kld divergence({}, {}) = {}'.format(cache.name, disk.name, pt.divergence(cache, disk)))
+    des = PartitionDescriptor(cache, disk, similarity_measure_type='avg-kld', update_modes=['pop', 'cross-div'])
+    des.save()
+    print('saving ...')
+

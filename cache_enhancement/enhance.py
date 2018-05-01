@@ -15,13 +15,13 @@ if __name__ == '__main__':
     with ix.reader() as ix_reader:
         pa = pt.Partitioner(ix, ix_reader)
         print('Partitioner initiated!')
-        parts = pa.generate([0.98, 0.94, 0.9])
+        parts = pa.generate([0.98, 0.90, 0.4])
         parts = [p for p in parts]
         print('Parts created!')
-        print('naive(parts[1], parts[2])')
-        naive(parts[1], parts[2])
-        print('naive(parts[2], parts[1])')
-        naive(parts[2], parts[1])
+        print('naive ({}, {})'.format(parts[1].name, parts[2].name))
+        naive(cache=parts[0], disk=parts[2])
+        print('naive ({}, {})'.format(parts[1].name, parts[3].name))
+        naive(cache=parts[1], disk=parts[2])
         # for dn in [10439,7634,1701,9761,6697,8430,10576,11162,4767,4610]:
         # # for dn in [1175,8765,7297,5619,2471,9536,7885,10711,6007,10814]:
         #     parts[2].add_doc(dn)

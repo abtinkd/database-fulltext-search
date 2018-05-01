@@ -11,7 +11,7 @@ LOGGER = logging.getLogger()
 class PartitionDescriptor(object):
 
     def __init__(self, this_partition: IndexVirtualPartition, cross_partition: IndexVirtualPartition,
-                 scoring_type='tf', similarity_measure_type='avg-kld'):
+                 scoring_type='tf', similarity_measure_type='avg-kld', update_modes=['pop']):
         self._partition = this_partition
         self._cross_partition = cross_partition
         self.scoring_type = scoring_type
@@ -22,15 +22,16 @@ class PartitionDescriptor(object):
         self.pop_distribution = None
         self.divergence_distribution = None
         self.cross_divergence_distribution = None
-        self.update()
+        self.update(distributions=update_modes)
 
-    def update(self, mode='all'):
-        if mode == 'all' or 'pop':
-            self._update_popularity_distribution()
-        if mode == 'all' or 'div':
-            self._update_divergence_distribution(cross=False)
-        if mode == 'all' or 'cross-div':
-            self._update_divergence_distribution(cross=True)
+    def update(self, distributions: list):
+        for mode in distributions:
+            if mode == 'pop':
+                self._update_popularity_distribution()
+            if mode == 'div':
+                self._update_divergence_distribution(cross=False)
+            if mode == 'cross-div':
+                self._update_divergence_distribution(cross=True)
 
     def _update_popularity_distribution(self):
         LOGGER.info('{}\'s popularity distribution is being updated...'.format(self.name))
@@ -74,16 +75,20 @@ class PartitionDescriptor(object):
             file_path = 'data/{}_{}.csv'.format(strftime('%m%d_%H%M'), self.name)
         pop_distrib = self.get_sorted('pop')
         with open(file_path, 'w') as w:
-            w.write(self.name +
-                    ' :: aritcleId, popularity, divcross-div, divcross, div, docnum, count, xpath\n')
+            w.write('aritcleId::{0}, popularity, cross-this_{1}, cross_{1}, {1}, docnum, count, xpath'.
+                    format(self.name, self.scoring_type+self.similarity_measure))
             for docnum, pop in pop_distrib:
                 sf = self._ixreader.stored_fields(docnum)
+                cross_div = self.cross_divergence_distribution[docnum] if \
+                            self.cross_divergence_distribution is not None else 0.0
+                div = self.divergence_distribution[docnum] if \
+                    self.divergence_distribution is not None else 0.0
                 w.write('{},{},{},{},{},{},{},{}\n'
                         .format(sf['articleID'],
                                 pop,
-                                self.cross_divergence_distribution[docnum] - self.divergence_distribution[docnum],
-                                self.cross_divergence_distribution[docnum],
-                                self.divergence_distribution[docnum],
+                                cross_div - div,
+                                cross_div,
+                                div,
                                 docnum,
                                 sf['count'],
                                 sf['xpath']))
