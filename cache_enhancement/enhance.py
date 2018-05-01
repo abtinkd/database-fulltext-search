@@ -2,26 +2,26 @@ import config
 import partition as pt
 from enhancer.naive import naive
 from whoosh import index
-import config
+import config, logging
 import sys
 
+LOGGER = logging.getLogger()
 
 if __name__ == '__main__':
     index_name = sys.argv[1]
-    config.setup_logger(index_name+'_enhance')
+    config.setup_logger(file_name=index_name+'_enhance')
 
     configuration = config.get_paths()
     ix = index.open_dir(configuration[index_name], readonly=True)
+    LOGGER.info('Index path: '+configuration[index_name])
     with ix.reader() as ix_reader:
         pa = pt.Partitioner(ix, ix_reader)
         print('Partitioner initiated!')
-        parts = pa.generate([0.98, 0.90, 0.4])
+        parts = pa.generate([0.98, 0.1])
         parts = [p for p in parts]
         print('Parts created!')
-        print('naive ({}, {})'.format(parts[1].name, parts[2].name))
-        naive(cache=parts[0], disk=parts[2])
-        print('naive ({}, {})'.format(parts[1].name, parts[3].name))
-        naive(cache=parts[1], disk=parts[2])
+        print('naive ({}, {})'.format(parts[0].name, parts[1].name))
+        naive(cache=parts[0], disk=parts[1])
         # for dn in [10439,7634,1701,9761,6697,8430,10576,11162,4767,4610]:
         # # for dn in [1175,8765,7297,5619,2471,9536,7885,10711,6007,10814]:
         #     parts[2].add_doc(dn)

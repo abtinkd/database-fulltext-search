@@ -72,7 +72,7 @@ class PartitionDescriptor(object):
 
     def save(self, file_path=None):
         if file_path is None:
-            file_path = 'data/{}_{}.csv'.format(strftime('%m%d_%H%M'), self.name)
+            file_path = 'data/{}_{}.csv'.format(strftime('%m%d_%H%M%S'), self.name)
         pop_distrib = self.get_sorted('pop')
         with open(file_path, 'w') as w:
             w.write('aritcleId::{0}, popularity, cross-this_{1}, cross_{1}, {1}, docnum, count, xpath'.
