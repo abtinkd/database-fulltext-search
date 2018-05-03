@@ -12,7 +12,7 @@ def naive(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition):
         LOGGER.info('{} {} ivergence({}, {}) = {}'.format(sc, sm, cache.name, disk.name, div_val))
         des = PartitionDescriptor(cache, disk, similarity_measure_type=sm, update_modes=['pop', 'div', 'cross-div'])
         print('saving ...')
-        des.save()
+        des.save('/data/khodadaa/index/data')
 
     repeat(sm='kld', sc='tf')
     repeat(sm='avg-kld', sc='tf')
