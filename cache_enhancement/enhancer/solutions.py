@@ -2,6 +2,7 @@ import partition as pt
 from enhancer.describe import PartitionDescriptor
 import logging
 import pandas as pd
+import sys
 
 LOGGER = logging.getLogger()
 
@@ -12,9 +13,16 @@ def load_distribution_csv(file_path: str, start_range: float=0.0, end_range: flo
         for l in fo:
             lines += 1
 
-    start_line = start_range * lines
-    end_line = end_range * lines
-    return pd.read_csv(file_path, sep=',', nrows=end_line-start_line, skiprows=start_line)
+    skip_range = range(1, int(start_range * lines))  # keeps first row for column names
+    nbr_rows_to_read = int((end_range-start_range) * lines)
+    distribution_df = pd.read_csv(file_path, sep=',', nrows=nbr_rows_to_read, skiprows=skip_range)
+
+    first_column_name = distribution_df.columns[0]
+    parts = first_column_name.split('::')
+    distribution_df.rename(columns={first_column_name: parts[0]})
+    distribution_df.columns.name = parts[1]
+
+    return distribution_df
 
 
 def generate_distance_distributions(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition,
@@ -35,6 +43,6 @@ def naive(cache_distribution_path: str, disk_distribution_path: str):
     disk_df = load_distribution_csv(disk_distribution_path, start_range=0.0, end_range=0.05)
 
 
-
-
-
+if __name__ == '__main__':
+    df = load_distribution_csv(sys.argv[1], start_range=sys.argv[2], end_range=sys.argv[3])
+    print(df.describe())
