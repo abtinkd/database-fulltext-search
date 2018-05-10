@@ -39,7 +39,7 @@ def generate_distance_distributions(cache: pt.IndexVirtualPartition, disk: pt.In
         repeat(sm=d, sc='tf')
 
 
-def naive1(cache_distribution_path: str, disk_distribution_path: str, use_column_with_index: int,
+def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_path: str, use_column_with_index: int,
            cache_start_range: float, cache_end_range: float,
            disk_start_range: float, disk_end_range: float,
            equal_add_delete: bool=True):
@@ -56,10 +56,11 @@ def naive1(cache_distribution_path: str, disk_distribution_path: str, use_column
     LOGGER.info('Naive1, {}, eq={}, CaS={}, CaE={}, DiS={}, DiE={}, CaPath:{}, DiPath:{}'
                 .format(pivot_col, equal_add_delete, cache_start_range, cache_end_range,
                         disk_start_range, disk_end_range, cache_distribution_path, disk_distribution_path))
-    fw_cache = open('data/update-logs/niv1_{}_{}-{}_{}-{}_cache_update_log.csv'
-                    .format(pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
-    fw_disk = open('data/update-logs/niv1_{}_{}-{}_{}-{}_disk_update_log.csv'
-                   .format(pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
+    save_log_path = save_log_path[:-1] if save_log_path[-1] == '/' else save_log_path
+    fw_cache = open('{}/niv1_{}_{}-{}_{}-{}_cache_update_log.csv'
+                    .format(save_log_path, pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
+    fw_disk = open('{}/niv1_{}_{}-{}_{}-{}_disk_update_log.csv'
+                   .format(save_log_path, pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
 
     min_change = cache_remove_df.shape[0] if cache_remove_df.size < disk_remove_df.shape[0] else disk_remove_df.shape[0]
     c = 0

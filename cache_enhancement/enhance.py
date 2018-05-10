@@ -26,14 +26,15 @@ def partition_and_generate_distributions(index_name: str):
 
 
 if __name__ == '__main__':
-    disk_distribution_path = sys.argv[1]
-    cache_distribution_path = sys.argv[2]
+    save_dir = sys.argv[1]
+    disk_distribution_path = sys.argv[2]
+    cache_distribution_path = sys.argv[3]
 
-    cache_ranges = [(0.5, 1.0), (0.75, 1.0), (0.95, 1.0)]
-    disk_ranges = [(0.0, 0.01), (0.0, 0.05), (0.0, 0.25)]
+    cache_ranges = [(0.5, 1.0), (0.9, 1.0)]
+    disk_ranges = [(0.0, 0.01), (0.0, 0.1), (0.0, 0.5)]
 
     for c in cache_ranges:
         for d in disk_ranges:
             sol.naive1(cache_distribution_path=cache_distribution_path, disk_distribution_path=disk_distribution_path,
-                       use_column_with_index=2, cache_start_range=c[0], cache_end_range=c[1], disk_start_range=d[0],
-                       disk_end_range=d[1], equal_add_delete=True)
+                       save_log_path=save_dir, use_column_with_index=2, cache_start_range=c[0], cache_end_range=c[1],
+                       disk_start_range=d[0], disk_end_range=d[1], equal_add_delete=True)
