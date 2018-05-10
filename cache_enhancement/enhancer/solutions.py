@@ -39,37 +39,43 @@ def generate_distance_distributions(cache: pt.IndexVirtualPartition, disk: pt.In
         repeat(sm=d, sc='tf')
 
 
-def naive(cache_distribution_path: str, disk_distribution_path: str):
-    cache_df = load_distribution_csv(cache_distribution_path, start_range=0.5)
-    disk_df = load_distribution_csv(disk_distribution_path, start_range=0.0, end_range=0.05)
+def naive1(cache_distribution_path: str, disk_distribution_path: str, use_column_with_index: int,
+           cache_start_range: float, cache_end_range: float,
+           disk_start_range: float, disk_end_range: float,
+           equal_add_delete: bool=True):
+    cache_df = load_distribution_csv(cache_distribution_path, 
+                                     start_range=cache_start_range, end_range=cache_end_range)
+    disk_df = load_distribution_csv(disk_distribution_path, 
+                                    start_range=disk_start_range, end_range=disk_end_range)
+    #  0.0 <= cache_start_range, disk_start_range <= cache_end_range, disk_end_range <= 1.0
+    
+    pivot_col = cache_df.columns[use_column_with_index]
 
-    diff_dist_col = cache_df.columns[2]
-    # cross_dist_col = cache_df.columns[3]
-    # dist_col = cache_df.columns[4]
+    cache_remove_df = cache_df[cache_df[pivot_col] < 0.0]
+    disk_remove_df = disk_df[disk_df[pivot_col] < 0.0]
+    LOGGER.info('Naive1, {}, eq={}, CaS={}, CaE={}, DiS={}, DiE={}, CaPath:{}, DiPath:{}'
+                .format(pivot_col, equal_add_delete, cache_start_range, cache_end_range,
+                        disk_start_range, disk_end_range, cache_distribution_path, disk_distribution_path))
+    fw_cache = open('data/update-logs/niv1_{}_{}-{}_{}-{}_cache_update_log.csv'
+                    .format(pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
+    fw_disk = open('data/update-logs/niv1_{}_{}-{}_{}-{}_disk_update_log.csv'
+                   .format(pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
 
-    cache_remove_df = cache_df[cache_df[diff_dist_col] < 0.0]
-    disk_remove_df = disk_df[disk_df[diff_dist_col] < 0.0]
-
-    fw_cache = open('data/cache_update_log.csv', 'w')
-    fw_disk = open('data/disk_update_log.csv', 'w')
-
+    min_change = cache_remove_df.shape[0] if cache_remove_df.size < disk_remove_df.shape[0] else disk_remove_df.shape[0]
+    c = 0
     for _, row in cache_remove_df.iterrows():
-        fw_cache.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[diff_dist_col]))
-        fw_disk.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[diff_dist_col]))
-
+        c += 1
+        fw_cache.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[pivot_col]))
+        fw_disk.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[pivot_col]))
+        if equal_add_delete and c >= min_change:
+            break
+    c = 0
     for _, row in disk_remove_df.iterrows():
-        fw_cache.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[diff_dist_col]))
-        fw_disk.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[diff_dist_col]))
+        c += 1
+        fw_cache.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[pivot_col]))
+        fw_disk.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[pivot_col]))
+        if equal_add_delete and c >= min_change:
+            break
 
     fw_cache.close()
     fw_disk.close()
-
-
-if __name__ == '__main__':
-    # if len(sys.argv) > 3:
-    #     df = load_distribution_csv(sys.argv[1], start_range=sys.argv[2], end_range=sys.argv[3])
-    # else:
-    #     df = load_distribution_csv('/Volumes/archive/Code/PycharmProjects/database-fulltext-search/cache_enhancement/'
-    #                                'data/0501_155431_0.98-1.0_part_vs_0.0-0.98_part.csv', 0.1, 0.6)
-    # print(df.describe())
-    naive(sys.argv[1], sys.argv[2])

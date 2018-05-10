@@ -76,7 +76,7 @@ class PartitionDescriptor(object):
         file_path += '/{}_{}.csv'.format(strftime('%m%d_%H%M%S'), self.name)
         pop_distrib = self.get_sorted('pop')
         with open(file_path, 'w') as w:
-            w.write('aritcleId::{0}, popularity, cross-this_{1}, cross_{1}, {1}, docnum, count, xpath\n'.
+            w.write('articleId::{0}, popularity, cross-this_{1}, cross_{1}, {1}, docnum, count, xpath\n'.
                     format(self.name, self.scoring_type+self.similarity_measure))
             for docnum, pop in pop_distrib:
                 sf = self._ixreader.stored_fields(docnum)
