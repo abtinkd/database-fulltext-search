@@ -9,8 +9,6 @@ LOGGER = logging.getLogger()
 
 
 def partition_and_generate_distributions(index_name: str):
-    config.setup_logger(file_name=index_name + '_enhance')
-
     configuration = config.get_paths()
     ix = index.open_dir(configuration[index_name], readonly=True)
     LOGGER.info('Index path: ' + configuration[index_name])
@@ -29,6 +27,7 @@ if __name__ == '__main__':
     save_dir = sys.argv[1]
     cache_distribution_path = sys.argv[2]
     disk_distribution_path = sys.argv[3]
+    config.setup_logger(file_name='_enhance')
 
     cache_ranges = [(0.5, 1.0), (0.9, 1.0)]
     disk_ranges = [(0.0, 0.01), (0.0, 0.1), (0.0, 0.5)]
