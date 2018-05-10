@@ -62,7 +62,7 @@ def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_p
     fw_disk = open('{}/niv1_{}_{}-{}_{}-{}_disk_update_log.csv'
                    .format(save_log_path, pivot_col, cache_start_range, cache_end_range, disk_start_range, disk_end_range), 'w')
 
-    min_change = cache_remove_df.shape[0] if cache_remove_df.size < disk_remove_df.shape[0] else disk_remove_df.shape[0]
+    min_change = cache_remove_df.shape[0] if cache_remove_df.shape[0] < disk_remove_df.shape[0] else disk_remove_df.shape[0]
     c = 0
     for _, row in cache_remove_df.iterrows():
         c += 1
