@@ -53,6 +53,8 @@ def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_p
 
     cache_remove_df = cache_df[cache_df[pivot_col] < 0.0]
     disk_remove_df = disk_df[disk_df[pivot_col] < 0.0]
+    cache_remove_df = cache_remove_df.sort_values(by=pivot_col, ascending=True)
+    disk_remove_df = disk_remove_df.sort_values(by=pivot_col, ascending=True)
     LOGGER.info('Naive1, {}, eq={}, CaS={}, CaE={}, DiS={}, DiE={}, CaPath:{}, DiPath:{}'
                 .format(pivot_col, equal_add_delete, cache_start_range, cache_end_range,
                         disk_start_range, disk_end_range, cache_distribution_path, disk_distribution_path))
