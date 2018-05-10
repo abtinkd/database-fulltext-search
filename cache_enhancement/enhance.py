@@ -27,8 +27,8 @@ def partition_and_generate_distributions(index_name: str):
 
 if __name__ == '__main__':
     save_dir = sys.argv[1]
-    disk_distribution_path = sys.argv[2]
-    cache_distribution_path = sys.argv[3]
+    cache_distribution_path = sys.argv[2]
+    disk_distribution_path = sys.argv[3]
 
     cache_ranges = [(0.5, 1.0), (0.9, 1.0)]
     disk_ranges = [(0.0, 0.01), (0.0, 0.1), (0.0, 0.5)]
