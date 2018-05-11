@@ -29,11 +29,14 @@ if __name__ == '__main__':
     disk_distribution_path = sys.argv[3]
     config.setup_logger(file_name='_enhance')
 
-    cache_ranges = [(0.5, 1.0), (0.9, 1.0)]
-    disk_ranges = [(0.0, 0.01), (0.0, 0.1), (0.0, 0.5)]
+    cache_ranges = [(0.0, 1.0)]
+    disk_ranges = [(0.0, 0.2), (0.0, 1.0)]
 
     for c in cache_ranges:
         for d in disk_ranges:
-            sol.naive1(cache_distribution_path=cache_distribution_path, disk_distribution_path=disk_distribution_path,
-                       save_log_path=save_dir, use_column_with_index=2, cache_start_range=c[0], cache_end_range=c[1],
+            # sol.naive1(cache_distribution_path=cache_distribution_path, disk_distribution_path=disk_distribution_path,
+            #            save_log_path=save_dir, use_column_with_index=2, cache_start_range=c[0], cache_end_range=c[1],
+            #            disk_start_range=d[0], disk_end_range=d[1], equal_add_delete=True)
+            sol.naive2(cache_distribution_path=cache_distribution_path, disk_distribution_path=disk_distribution_path,
+                       save_log_path=save_dir, change_fraction=0.17, cache_start_range=c[0], cache_end_range=c[1],
                        disk_start_range=d[0], disk_end_range=d[1], equal_add_delete=True)

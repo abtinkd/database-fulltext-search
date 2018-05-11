@@ -107,3 +107,49 @@ def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_p
 
     fw_cache.close()
     fw_disk.close()
+
+
+def naive2(cache_distribution_path: str, disk_distribution_path: str, save_log_path: str, change_fraction: float,
+           cache_start_range: float, cache_end_range: float,
+           disk_start_range: float, disk_end_range: float,
+           equal_add_delete: bool = True):
+    cache_df = load_distribution_csv(cache_distribution_path,
+                                     start_range=cache_start_range, end_range=cache_end_range)
+    disk_df = load_distribution_csv(disk_distribution_path,
+                                    start_range=disk_start_range, end_range=disk_end_range)
+    #  0.0 <= cache_start_range, disk_start_range <= cache_end_range, disk_end_range <= 1.0
+
+    div_col = cache_df.columns[4]
+    div_cross_col = cache_df.columns[3]
+
+    # disk_remove_df = disk_df[disk_df[pivot_col] < 0.0]
+    cache_df = cache_df.sort_values(by=div_col, ascending=True)
+    disk_df = disk_df.sort_values(by=div_cross_col, ascending=False)
+    LOGGER.info('Naive2-variety, {}, eq={}, CaS={}, CaE={}, DiS={}, DiE={}, CaPath:{}, DiPath:{}'
+                .format(div_col, equal_add_delete, cache_start_range, cache_end_range,
+                        disk_start_range, disk_end_range, cache_distribution_path, disk_distribution_path))
+    save_log_path = save_log_path[:-1] if save_log_path[-1] == '/' else save_log_path
+    fw_cache = open('{}/niv2_{}_{}-{}_{}-{}_cache_update_log.csv'
+                    .format(save_log_path, div_col, cache_start_range, cache_end_range, disk_start_range,
+                            disk_end_range), 'w')
+    fw_disk = open('{}/niv2_{}_{}-{}_{}-{}_disk_update_log.csv'
+                   .format(save_log_path, div_col, cache_start_range, cache_end_range, disk_start_range,
+                           disk_end_range), 'w')
+
+    c = 0
+    for _, row in cache_df.iterrows():
+        c += 1
+        fw_cache.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[div_col]))
+        fw_disk.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[div_cross_col]))
+        if equal_add_delete and c >= int(cache_df.shape[0]*change_fraction):
+            break
+    c = 0
+    for _, row in disk_df.iterrows():
+        c += 1
+        fw_cache.write('a, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[div_cross_col]))
+        fw_disk.write('d, {}, {}, {}\n'.format(row['articleId'], row['xpath'], row[div_col]))
+        if equal_add_delete and c >= int(cache_df.shape[0]*change_fraction):
+            break
+
+    fw_cache.close()
+    fw_disk.close()
