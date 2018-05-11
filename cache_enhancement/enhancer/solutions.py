@@ -39,6 +39,31 @@ def generate_distance_distributions(cache: pt.IndexVirtualPartition, disk: pt.In
         repeat(sm=d, sc='tf')
 
 
+def recursive_refine(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition,
+                     save_log_path: str, distance_type: str='kld', score_type: str='tf'):
+    from collections import defaultdict
+    prev_div_val = 0.0
+    cache_update_log, disk_update_log = defaultdict(str), defaultdict(str)
+    while True:
+        div_val = pt.divergence(cache, disk, similarity_measure_type=distance_type, score_type=score_type)
+        LOGGER.info('{} {} ivergence({}, {}) = {}'.format(distance_type, score_type, cache.name, disk.name, div_val))
+        if div_val < prev_div_val:
+            break
+        descriptor_cache_vs_disk = PartitionDescriptor(cache, disk, similarity_measure_type=distance_type,
+                                                       update_modes=['pop', 'div', 'cross-div'])
+        descriptor_disk_vs_cache = PartitionDescriptor(disk, cache, similarity_measure_type=distance_type,
+                                                       update_modes=['pop', 'div', 'cross-div'])
+        cache_df = pd.DataFrame(descriptor_cache_vs_disk.divergence_distribution.items(),
+                                columns=['articleId', score_type+distance_type], index='articleId')
+        cache_df['cross_'+score_type+distance_type] = pd.Series(descriptor_cache_vs_disk.cross_divergence_distribution,
+                                                                index=cache_df.index)
+        disk_df = pd.DataFrame(descriptor_disk_vs_cache.divergence_distribution.items(),
+                                columns=['articleId', score_type + distance_type], index='articleId')
+        disk_df['cross_' + score_type + distance_type] = pd.Series(
+            descriptor_disk_vs_cache.cross_divergence_distribution,
+            index=disk_df.index)
+
+
 def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_path: str, use_column_with_index: int,
            cache_start_range: float, cache_end_range: float,
            disk_start_range: float, disk_end_range: float,
