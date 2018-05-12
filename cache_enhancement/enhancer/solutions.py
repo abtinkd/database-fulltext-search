@@ -47,6 +47,7 @@ def recursive_refine(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualParti
     while step < 25:
         step += 1
         LOGGER.info("round: {}, cache size: {}".format(step, cache.doc_count()))
+        print("round: {}, cache size: {}".format(step, cache.doc_count()))
         div_val = pt.divergence(cache, disk, similarity_measure_type=distance_type, score_type=score_type)
         LOGGER.info('{} {} ivergence({}, {}) = {}'.format(distance_type, score_type, cache.name, disk.name, div_val))
         if div_val <= prev_div_val:
