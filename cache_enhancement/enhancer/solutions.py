@@ -41,27 +41,37 @@ def generate_distance_distributions(cache: pt.IndexVirtualPartition, disk: pt.In
 
 def recursive_refine(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualPartition,
                      save_log_path: str, distance_type: str='kld', score_type: str='tf'):
-    from collections import defaultdict
+    removed_docs_cache = []
     prev_div_val = 0.0
-    cache_update_log, disk_update_log = defaultdict(str), defaultdict(str)
     while True:
         div_val = pt.divergence(cache, disk, similarity_measure_type=distance_type, score_type=score_type)
         LOGGER.info('{} {} ivergence({}, {}) = {}'.format(distance_type, score_type, cache.name, disk.name, div_val))
         if div_val < prev_div_val:
             break
+        prev_div_val = div_val
         descriptor_cache_vs_disk = PartitionDescriptor(cache, disk, similarity_measure_type=distance_type,
                                                        update_modes=['pop', 'div', 'cross-div'])
-        descriptor_disk_vs_cache = PartitionDescriptor(disk, cache, similarity_measure_type=distance_type,
-                                                       update_modes=['pop', 'div', 'cross-div'])
-        cache_df = pd.DataFrame(descriptor_cache_vs_disk.divergence_distribution.items(),
-                                columns=['articleId', score_type+distance_type], index='articleId')
-        cache_df['cross_'+score_type+distance_type] = pd.Series(descriptor_cache_vs_disk.cross_divergence_distribution,
-                                                                index=cache_df.index)
-        disk_df = pd.DataFrame(descriptor_disk_vs_cache.divergence_distribution.items(),
-                                columns=['articleId', score_type + distance_type], index='articleId')
-        disk_df['cross_' + score_type + distance_type] = pd.Series(
-            descriptor_disk_vs_cache.cross_divergence_distribution,
-            index=disk_df.index)
+        pop_distrib = descriptor_cache_vs_disk.pop_distribution
+        div_distrib = descriptor_cache_vs_disk.divergence_distribution
+        cross_div_distrib = descriptor_cache_vs_disk.cross_divergence_distribution
+
+        cname = score_type+distance_type
+        cache_df = pd.DataFrame({'articleId': pop_distrib, cname : div_distrib, 'cross_'+cname: cross_div_distrib})
+        remove_candidates = list(cache_df[cache_df['cross_'+cname]-cache_df[cname] < 0].index)
+        for dn in remove_candidates:
+            removed_docs_cache.append(dn)
+            cache.remove_doc(dn)
+
+    save_log_path = save_log_path[:-1] if save_log_path[-1] == '/' else save_log_path
+    fw_cache = open('{}/recur_{}_{}_cache_update_log.csv'
+                    .format(save_log_path, cache.name, disk.name), 'w')
+    fw_disk = open('{}/recur_{}_{}_disk_update_log.csv'
+                   .format(save_log_path, cache.name, disk.name), 'w')
+    for dn in removed_docs_cache:
+        fw_cache.write('d, {}, {}, {}\n'.format(dn, 'void', 'void'))
+        fw_disk.write('a, {}, {}, {}\n'.format(dn, 'void', 'void'))
+    fw_cache.close()
+    fw_disk.close()
 
 
 def naive1(cache_distribution_path: str, disk_distribution_path: str, save_log_path: str, use_column_with_index: int,
