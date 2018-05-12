@@ -60,10 +60,11 @@ def recursive_refine(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualParti
         cross_div_distrib = descriptor_cache_vs_disk.cross_divergence_distribution
 
         cname = score_type+distance_type
-        cache_df = pd.DataFrame({'articleId': pop_distrib, cname : div_distrib, 'cross_'+cname: cross_div_distrib})
+        cache_df = pd.DataFrame({'popularity': pop_distrib, cname : div_distrib, 'cross_'+cname: cross_div_distrib})
         remove_candidates = list(cache_df[cache_df['cross_'+cname]-cache_df[cname] < 0].index)
         for dn in remove_candidates:
-            removed_docs_cache.append(dn)
+            articleId = cache._reader.stored_fields(dn)['articleID']
+            removed_docs_cache.append(articleId)
             cache.remove_doc(dn)
 
     save_log_path = save_log_path[:-1] if save_log_path[-1] == '/' else save_log_path
@@ -72,8 +73,8 @@ def recursive_refine(cache: pt.IndexVirtualPartition, disk: pt.IndexVirtualParti
     fw_disk = open('{}/recur_{}_{}_disk_update_log.csv'
                    .format(save_log_path, cache.name, disk.name), 'w')
     for dn in removed_docs_cache:
-        fw_cache.write('d, {}, {}, {}\n'.format(dn, 'void', 'void'))
-        fw_disk.write('a, {}, {}, {}\n'.format(dn, 'void', 'void'))
+        fw_cache.write('d, {}, {}, {}\n'.format(dn, 'void', -1.0))
+        fw_disk.write('a, {}, {}, {}\n'.format(dn, 'void', -1.0))
     fw_cache.close()
     fw_disk.close()
 
