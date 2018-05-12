@@ -16,7 +16,6 @@ def setup_logger(file_name=None):
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
-    logger.propagate = False
     print('Logging set up.')
     return logger
 
