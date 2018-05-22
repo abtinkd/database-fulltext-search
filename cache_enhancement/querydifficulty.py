@@ -82,10 +82,8 @@ def similarity(query: str, collection: IndexVirtualPartition, mode='avg') -> flo
 
 
 def clarity(query: str, query_result_docs_tfs: defaultdict(lambda: defaultdict(int)),
-            collection: IndexVirtualPartition) -> float:
+            collection_tfs: defaultdict, collection_total_terms: int) -> float:
     query_terms = list(tokenize(query).keys())
-    collection_tfs = collection.get_tfs()
-    collection_total_terms = collection.get_total_terms()
     vocabulary = list(collection_tfs.keys())
 
     def get_prob_t_condition_Dq(t: str, lambd=0.9) -> float:
@@ -117,21 +115,33 @@ if __name__ == '__main__':
     save_path = sys.argv[3]
 
     c = config.get_paths()
+    config.setup_logger('querydifficulty')
+
     ix = index.open_dir(c[index_name], readonly=True)
     LOGGER.info('Index path: ' + c[index_name])
     ix_reader = ix.reader()
 
-    database = IndexVirtualPartition(ix, None, 'DB', ix_reader, 'body')
+    # database = IndexVirtualPartition(ix, None, 'DB', ix_reader, 'body')
+    def get_database_tfs(ix_reader: MultiReader, field_name='body'):
+        tfs = defaultdict(lambda: defaultdict(int))
+        tot_terms = 0
+        all_terms = ix_reader.field_terms(field_name)
+        for term in all_terms:
+            f = ix_reader.frequency(field_name, term)
+            tfs[term] = f
+            tot_terms += f
+        return tfs, tot_terms
+    db_tfs, db_total_terms = get_database_tfs(ix_reader)
 
     df = pd.read_csv(query_file_path)
     uniqueries = df['query'].unique()
     for q in uniqueries:
         qdf = df[df['query'] == q]
-        scs = specificity(q, database.get_tfs(), database.get_total_terms())
+        scs = specificity(q, db_tfs, db_total_terms)
 
         aids = list(qdf['articleId'])
         docs_tfs = get_docs_tfs(aids, ix_reader)
-        clt = clarity(q, docs_tfs, database)
+        clt = clarity(q, docs_tfs, db_tfs, db_total_terms)
 
         df.loc[qdf.index, 'specificity'] = scs
         df.loc[qdf.index, 'clarity'] = clt
