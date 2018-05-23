@@ -44,7 +44,7 @@ def get_docs_tfs(article_ids: list, ix_reader: MultiReader, fieldname='body') ->
         if dn == -1:
             continue
         if ix_reader.has_vector(dn, fieldname):
-            tf_d = dict(ix_reader.vector_as('frequency', dn, fieldname))
+            tf_d = defaultdict(int, ix_reader.vector_as('frequency', dn, fieldname))
             docs_tfs[aId] = tf_d
         else:
             LOGGER.warning('No forward vector was found for docnum {}, articleID {}'.format(dn, aId))
@@ -54,12 +54,6 @@ def get_docs_tfs(article_ids: list, ix_reader: MultiReader, fieldname='body') ->
 def specificity(query: str, collection_tfs: defaultdict, collection_total_terms: int) -> float:
     tf_query = tokenize(query)
     total_query_terms = sum(tf_query.values())
-    # scs = 0.0
-    # for term, frequency in tf_query.items():
-    #     prob_t_conditioned_query = frequency / total_query_terms
-    #     prob_t_conditioned_collection = collection_tfs[term] / collection_total_terms
-    #     scs += prob_t_conditioned_query * log(prob_t_conditioned_query / prob_t_conditioned_collection)
-    # return scs
     return metrics.kl_divergence(tf_query, collection_tfs, total_query_terms, collection_total_terms)
 
 
@@ -120,44 +114,37 @@ def clarity(query: str, query_result_docs_tfs: defaultdict(lambda: defaultdict(i
 
 
 if __name__ == '__main__':
-    index_name = sys.argv[1]
+    c = config.get_paths()
+    index_path = c[sys.argv[1]]
     query_file_path = sys.argv[2]
     save_path = sys.argv[3]
 
-    c = config.get_paths()
     config.setup_logger('querydifficulty')
 
-    ix = index.open_dir(c[index_name], readonly=True)
-    LOGGER.info('Index path: ' + c[index_name])
+    ix = index.open_dir(index_path, readonly=True)
+    LOGGER.info('Index path: ' + index_path)
     ix_reader = ix.reader()
 
-    # database = IndexVirtualPartition(ix, None, 'DB', ix_reader, 'body')
-    def get_database_tfs(ix_reader: MultiReader, field_name='body'):
-        LOGGER.info('Getting TF for the database')
-        tfs = defaultdict(lambda: defaultdict(int))
-        tot_terms = 0
-        all_terms = ix_reader.field_terms(field_name)
-        for term in all_terms:
-            f = ix_reader.frequency(field_name, term)
-            tfs[term] = f
-            tot_terms += f
-        return tfs, tot_terms
-    db_tfs, db_total_terms = get_database_tfs(ix_reader)
-    LOGGER.info('Databse TFs are ready.')
+    db_tfs = {}
+    with open(c['db_tfs'], 'r') as fr:
+        for line in fr:
+            parts = line.rsplit(',', 1)
+            db_tfs[parts[0]] = parts[1]
+    db_total_terms = sum(db_tfs.values())
 
     df = pd.read_csv(query_file_path)
     uniqueries = df['query'].unique()
     for q in uniqueries:
-        LOGGER.info(q)
         qdf = df[df['query'] == q]
         scs = specificity(q, db_tfs, db_total_terms)
 
-        aids = list(qdf['articleId'])
+        aids = list(map(lambda x: str(x), qdf['articleId'].values))
         docs_tfs = get_docs_tfs(aids, ix_reader)
         clt = clarity(q, docs_tfs, db_tfs, db_total_terms)
 
         df.loc[qdf.index, 'specificity'] = scs
         df.loc[qdf.index, 'clarity'] = clt
+        print(q, clt, scs)
 
     ix_reader.close()
     df.to_csv(save_path, index=False)

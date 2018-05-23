@@ -1,5 +1,5 @@
 import whoosh.index as index
-from whoosh.reading import IndexReader
+from whoosh.reading import IndexReader, MultiReader
 from whoosh.searching import Searcher
 from whoosh import sorting
 from whoosh.qparser import QueryParser
@@ -10,6 +10,16 @@ import logging
 import time
 
 LOGGER = logging.getLogger()
+
+
+def get_database_tfs(ix_reader: MultiReader, field_name='body'):
+    LOGGER.info('Building TF for [{}] field of the Index'.format(field_name))
+    tfs = defaultdict(lambda: defaultdict(int))
+    all_terms = ix_reader.field_terms(field_name)
+    for term in all_terms:
+        f = ix_reader.frequency(field_name, term)
+        tfs[term] = f
+    return tfs
 
 
 # A filter over Index
@@ -258,32 +268,3 @@ class Partitioner(object):
                 ti += 1
                 if ti == len(threasholds):
                     break
-
-
-# def partition_popularity_based(index_path, low_pop_ratio, high_pop_ratio=1.0):
-#     ix = index.open_dir(index_path, readonly=True)
-#     facet = sorting.FieldFacet('count', reverse=True)
-#
-#     with ix.reader() as reader:
-#         tot_docs_count = ix.doc_count()
-#         cache_docs_count = int(topFraction * tot_docs_count)
-#         id_list = get_sorted_ids(reader)
-#         cache_id_list = id_list[:cache_docs_count]
-#         db_id_list = id_list[cache_docs_count:]
-#         print(reader.doc_field_length(5266, 'body'))
-#         # v = reader.vector(5266, 'body')
-#         # print(v)
-#
-#
-#
-#         # print(reader.frequency('body', ''))
-#         # terms = reader.field_terms('body')
-#     with ix.searcher() as searcher:
-#         qp = MultifieldParser(['body', 'count'], schema=ix.schema)
-#         qp.add_plugin(GtLtPlugin())
-#         query = qp.parse('Iran')
-#         results = searcher.search(query, sortedby=facet, limit=None)
-#
-#         for res in results:
-#             print(res)
-
