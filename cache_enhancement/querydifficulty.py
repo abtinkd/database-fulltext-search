@@ -125,16 +125,17 @@ if __name__ == '__main__':
     LOGGER.info('Index path: ' + index_path)
     ix_reader = ix.reader()
 
-    db_tfs = {}
+    db_tfs = defaultdict(int)
     with open(c['db_tfs'], 'r') as fr:
         for line in fr:
             parts = line.rsplit(',', 1)
-            db_tfs[parts[0]] = parts[1]
+            db_tfs[parts[0]] = int(parts[1])
     db_total_terms = sum(db_tfs.values())
 
     df = pd.read_csv(query_file_path)
     uniqueries = df['query'].unique()
     for q in uniqueries:
+        print(q)
         qdf = df[df['query'] == q]
         scs = specificity(q, db_tfs, db_total_terms)
 
@@ -144,7 +145,7 @@ if __name__ == '__main__':
 
         df.loc[qdf.index, 'specificity'] = scs
         df.loc[qdf.index, 'clarity'] = clt
-        print(q, clt, scs)
+        print(clt, scs)
 
     ix_reader.close()
     df.to_csv(save_path, index=False)
