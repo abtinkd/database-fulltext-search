@@ -50,13 +50,13 @@ def get_docs_tfs(article_ids: list, ix_reader: MultiReader, fieldname='body') ->
     return docs_tfs
 
 
-def specificity(query: str, tf_collection: defaultdict, total_collection_terms: int) -> float:
+def specificity(query: str, collection_tfs: defaultdict, collection_total_terms: int) -> float:
     tf_query = tokenize(query)
     total_query_terms = sum(tf_query.values())
     scs = 0.0
     for term, frequency in tf_query.items():
         prob_t_conditioned_query = frequency / total_query_terms
-        prob_t_conditioned_collection = tf_collection[term] / total_collection_terms
+        prob_t_conditioned_collection = collection_tfs[term] / collection_total_terms
         scs += prob_t_conditioned_query * log(prob_t_conditioned_query / prob_t_conditioned_collection)
     return scs
 
@@ -83,6 +83,14 @@ def similarity(query: str, collection: IndexVirtualPartition, mode='avg') -> flo
 
 def clarity(query: str, query_result_docs_tfs: defaultdict(lambda: defaultdict(int)),
             collection_tfs: defaultdict, collection_total_terms: int) -> float:
+    '''
+    Clarity
+    :param query: query text
+    :param query_result_docs_tfs: {articleId1: {'term1': count1, 'term2': count2, ...}, articleId2: {...}}
+    :param collection_tfs: {'term1': count1, ...}
+    :param collection_total_terms:
+    :return: a float number
+    '''
     query_terms = list(tokenize(query).keys())
     vocabulary = list(collection_tfs.keys())
 
@@ -91,12 +99,12 @@ def clarity(query: str, query_result_docs_tfs: defaultdict(lambda: defaultdict(i
         norm = 0.0
         for tf_d in query_result_docs_tfs.values():
             tot_d = sum(tf_d.values())
-            norm += reduce(lambda tm, y: (tf_d[tm]/tot_d)*y, query_terms)
+            norm += reduce(lambda x, y: x*y, map(lambda x: tf_d[x] / tot_d, query_terms))
         prob = 0.0
-        for dn, tf_d in query_result_docs_tfs.items():
+        for tf_d in query_result_docs_tfs.values():
             tot_d = sum(tf_d.values())
             prob_t_condit_d = lambd * (tf_d[t]/tot_d) + (1-lambd) * prob_t_condit_D
-            prob_q_condit_d = reduce(lambda tm, y: (tf_d[tm]/tot_d)*y, query_terms)
+            prob_q_condit_d = reduce(lambda x, y: x*y, map(lambda x: tf_d[x] / tot_d, query_terms))
             prob_d_condit_q = prob_q_condit_d / norm
             prob += prob_t_condit_d * prob_d_condit_q
         return prob
@@ -123,6 +131,7 @@ if __name__ == '__main__':
 
     # database = IndexVirtualPartition(ix, None, 'DB', ix_reader, 'body')
     def get_database_tfs(ix_reader: MultiReader, field_name='body'):
+        LOGGER.info('Getting TF for the database')
         tfs = defaultdict(lambda: defaultdict(int))
         tot_terms = 0
         all_terms = ix_reader.field_terms(field_name)
@@ -132,10 +141,12 @@ if __name__ == '__main__':
             tot_terms += f
         return tfs, tot_terms
     db_tfs, db_total_terms = get_database_tfs(ix_reader)
+    LOGGER.info('Databse TFs are ready.')
 
     df = pd.read_csv(query_file_path)
     uniqueries = df['query'].unique()
     for q in uniqueries:
+        LOGGER.info(q)
         qdf = df[df['query'] == q]
         scs = specificity(q, db_tfs, db_total_terms)
 
