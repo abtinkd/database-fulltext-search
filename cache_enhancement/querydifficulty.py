@@ -5,6 +5,7 @@ from collections import defaultdict
 from whoosh.qparser import QueryParser
 
 import config
+import metrics
 from partition import IndexVirtualPartition, Partitioner
 import whoosh.index as index
 import whoosh.analysis as analysis
@@ -53,12 +54,13 @@ def get_docs_tfs(article_ids: list, ix_reader: MultiReader, fieldname='body') ->
 def specificity(query: str, collection_tfs: defaultdict, collection_total_terms: int) -> float:
     tf_query = tokenize(query)
     total_query_terms = sum(tf_query.values())
-    scs = 0.0
-    for term, frequency in tf_query.items():
-        prob_t_conditioned_query = frequency / total_query_terms
-        prob_t_conditioned_collection = collection_tfs[term] / collection_total_terms
-        scs += prob_t_conditioned_query * log(prob_t_conditioned_query / prob_t_conditioned_collection)
-    return scs
+    # scs = 0.0
+    # for term, frequency in tf_query.items():
+    #     prob_t_conditioned_query = frequency / total_query_terms
+    #     prob_t_conditioned_collection = collection_tfs[term] / collection_total_terms
+    #     scs += prob_t_conditioned_query * log(prob_t_conditioned_query / prob_t_conditioned_collection)
+    # return scs
+    return metrics.kl_divergence(tf_query, collection_tfs, total_query_terms, collection_total_terms)
 
 
 def similarity(query: str, collection: IndexVirtualPartition, mode='avg') -> float:
