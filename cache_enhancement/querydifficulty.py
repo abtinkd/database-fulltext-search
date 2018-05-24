@@ -88,25 +88,26 @@ def clarity(query: str, query_result_docs_tfs: defaultdict(lambda: defaultdict(i
     :return: a float number
     '''
     query_terms = list(tokenize(query).keys())
-    vocabulary = list(collection_tfs.keys())
+    # vocabulary = list(collection_tfs.keys())
 
     def get_prob_t_condition_Dq(t: str, lambd=0.9) -> float:
         prob_t_condit_D = collection_tfs[t] / collection_total_terms
+        prob_term_condit_doc = lambda term, tfd: lambd * (tfd[term] / sum(tfd.values())) + \
+                                                         (1 - lambd) * prob_t_condit_D
         norm = 0.0
         for tf_d in query_result_docs_tfs.values():
-            tot_d = sum(tf_d.values())
-            norm += reduce(lambda x, y: x*y, map(lambda x: tf_d[x] / tot_d, query_terms))
+            norm += reduce(lambda x, y: x*y, map(lambda x: prob_term_condit_doc(x, tf_d), query_terms))
         prob = 0.0
         for tf_d in query_result_docs_tfs.values():
-            tot_d = sum(tf_d.values())
-            prob_t_condit_d = lambd * (tf_d[t]/tot_d) + (1-lambd) * prob_t_condit_D
-            prob_q_condit_d = reduce(lambda x, y: x*y, map(lambda x: tf_d[x] / tot_d, query_terms))
+            # tot_d = sum(tf_d.values())
+            prob_t_condit_d = prob_term_condit_doc(t, tf_d)
+            prob_q_condit_d = reduce(lambda x, y: x*y, map(lambda x: prob_term_condit_doc(x, tf_d), query_terms))
             prob_d_condit_q = prob_q_condit_d / norm
             prob += prob_t_condit_d * prob_d_condit_q
         return prob
 
     clt = 0.0
-    for t in vocabulary:
+    for t in query_terms:
         prob_t_condit_D = collection_tfs[t] / collection_total_terms
         prob_t_condit_Dq = get_prob_t_condition_Dq(t)
         clt += prob_t_condit_Dq * log(prob_t_condit_Dq / prob_t_condit_D)
