@@ -141,15 +141,15 @@ if __name__ == '__main__':
             vocabulary.append(parts[0])
 
     df = pd.read_csv(query_file_path)
-    uniqueries = df['query'].unique()
-    for q in uniqueries:
+    df.drop_duplicates(subset='id', inplace=True)
+    for q in df['query']:
         print(q)
         qdf = df[df['query'] == q]
         scs = specificity(q, db_tfs, db_total_terms)
 
         aids = list(map(lambda x: str(x), qdf['articleId'].values))
         docs_tfs = get_docs_tfs(aids, ix_reader)
-        clt = clarity(q, docs_tfs, db_tfs, db_total_terms, vocabulary)
+        clt = clarity(q, docs_tfs, db_tfs, db_total_terms)
 
         df.loc[qdf.index, 'specificity'] = scs
         df.loc[qdf.index, 'clarity'] = clt
@@ -157,4 +157,4 @@ if __name__ == '__main__':
         LOGGER.info('Query: {}, specificity: {}, clarity: {}'.format(q, scs, clt))
 
     ix_reader.close()
-    df.to_csv(save_path, index=False)
+    df.to_csv(save_path, index=False, columns=['id', 'query', 'specificity', 'clarity'])
